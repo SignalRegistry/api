@@ -1,0 +1,1 @@
+ssh root@167.71.34.169 "cd ~/SignalRegistry/api && git pull && npm i && pm2 restart api"

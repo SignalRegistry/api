@@ -1,0 +1,40 @@
+curl -c cookies.txt -b cookies.txt http://127.0.0.1:3000 -v
+
+###
+
+GET http://127.0.0.1:3000
+Authorization: Bearer 123456789123
+
+# Alternative
+# curl -H "Authorization: Bearer 123456789123"  http://127.0.0.1:3000 -v
+
+###
+
+# GET https://api.signalregistry.net/list/mydata
+GET http://127.0.0.1:3000/list/mydata
+
+###
+
+POST https://api.signalregistry.net/list/mydata
+# POST http://127.0.0.1:3000/list/mydata
+content-type: application/json
+
+[
+  1, 
+  2
+]
+
+###
+
+PUT https://api.signalregistry.net/list/mydata
+# PUT http://127.0.0.1:3000/list/mydata
+content-type: application/json
+
+[
+  3, 
+  4
+]
+
+###
+# DELETE https://api.signalregistry.net/list/mydata
+DELETE http://127.0.0.1:3000/list/mydata
