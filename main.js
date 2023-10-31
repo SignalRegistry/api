@@ -108,28 +108,29 @@ expr.use(async function (req, res, next) {
     else {
       let coid = cryp.randomBytes(16).toString("hex")
       req.sess = coid
-      res.cookie('sreg', coid, { maxAge: 1 * 1 * 60 * 60 * 1000, sameSite: 'none', secure: true });
+      res.cookie('sreg', coid, { maxAge: 1 * 24 * 60 * 60 * 1000, sameSite: 'none', secure: true });
       // console.log(`[DEBUG]: New session: ${req.sess}`)
     }
     next()
   }
 })
 
-// Endpoints
-expr.get('/', function (req, res) {
-  // res.send({ sess: req.sess })
-  let usme = process.memoryUsage()
-  for (let item of Object.keys(usme)) {
-    usme[item] = `${Math.round(usme[item] / 1024 / 1024 * 100) / 100}MB`;
-  }
-  res.send(Object.assign(req.headers, { sess: req.sess }, req.user, { 'usme': usme }))
+
+
+
+// Registry
+expr.get('/:coll', async (req, res) => {
+  const qery = { ownr: req.user ? req.user.unme : req.sess };
+  const rslt = await mgcl.db("signalregistry").collection(req.params.coll).find(qery);
+  res.send(rslt.toArray())
 })
 
+// Registry Data
 expr.get('/:coll/:name', async (req, res) => {
   const qery = { ownr: req.user ? req.user.unme : req.sess, name: req.params.name };
   const exst = await mgcl.db("signalregistry").collection(req.params.coll).countDocuments(qery)
   if (exst == 0)
-    res.status(404).send('[ERROR] Signal found.')
+    res.status(404).send('[ERROR] Signal not found.')
   else {
     const rslt = await mgcl.db("signalregistry").collection(req.params.coll).findOne(qery);
     res.send(rslt)
@@ -182,16 +183,27 @@ expr.delete('/:coll/:name', async (req, res) => {
   const qery = { ownr: req.user ? req.user.unme : req.sess, name: req.params.name };
   const exst = await mgcl.db("signalregistry").collection(req.params.coll).countDocuments(qery)
   if (exst == 0)
-    res.status(404).send('[ERROR] Signal found.')
+    res.status(404).send('[ERROR] Signal not found.')
   else {
     const rslt = await mgcl.db("signalregistry").collection(req.params.coll).deleteOne(qery);
     res.send(rslt.acknowledged)
   }
 })
 
+
+// Endpoints
+expr.get('/', function (req, res) {
+  // res.send({ sess: req.sess })
+  let usme = process.memoryUsage()
+  for (let item of Object.keys(usme)) {
+    usme[item] = `${Math.round(usme[item] / 1024 / 1024 * 100) / 100}MB`;
+  }
+  res.send(Object.assign(req.headers, { sess: req.sess }, req.user, { 'usme': usme }))
+})
 /*
 Abbreviations:
 usna: username
+usme: used memory
 qery: query
 updt: update
 opti: option

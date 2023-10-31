@@ -10,13 +10,11 @@ Authorization: Bearer 123456789123
 
 ###
 
-# GET http://127.0.0.1:3000/list/mydata
-GET https://api.signalregistry.net/list/mydata
+GET http://127.0.0.1:3000/list
 
 ###
 
-POST https://api.signalregistry.net/list/mydata
-# POST http://127.0.0.1:3000/list/mydata
+POST http://127.0.0.1:3000/list/mydata
 content-type: application/json
 
 [
