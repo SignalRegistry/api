@@ -111,9 +111,13 @@ expr.use(async function (req, res, next) {
     }
     else {
       let coid = cryp.randomBytes(16).toString("hex")
+      let coag = 1 * 24 * 60 * 60 * 1000
       req.sess = coid
-      res.cookie('sreg', coid, { maxAge: 1 * 24 * 60 * 60 * 1000, sameSite: 'none', secure: true });
-      // console.log(`[DEBUG]: New session: ${req.sess}`)
+      req.secr = (new Date()).toISOString()
+      req.seex = (new Date(Number(new Date())+coag)).toISOString()
+      res.cookie('sreg', req.sess, { maxAge: coag, sameSite: 'none', secure: true });
+      res.cookie('srcr', req.secr, { maxAge: coag, sameSite: 'none', secure: true });
+      res.cookie('srex', req.seex, { maxAge: coag, sameSite: 'none', secure: true });
     }
     next()
   }
@@ -202,11 +206,17 @@ expr.get('/', function (req, res) {
   for (let item of Object.keys(usme)) {
     usme[item] = `${Math.round(usme[item] / 1024 / 1024 * 100) / 100}MB`;
   }
-  res.send(Object.assign(req.headers, { sess: req.sess }, req.user, { 'usme': usme }))
+  res.send(Object.assign(req.headers, req.user, { 'usme': usme }))
 })
 
 /*
 Abbreviations:
+coid: cookie id
+coag: cookie age
+sess: session
+secr: session create date
+seex: session expire date
+
 usna: username
 usme: used memory
 qery: query
