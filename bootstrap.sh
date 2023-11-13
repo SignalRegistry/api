@@ -19,7 +19,7 @@ server {
   server_name api.signalregistry.net;
 
   # https://docs.digitalocean.com/glossary/allow-origin/
-  add_header Access-Control-Allow-Origin '*';
+  add_header Access-Control-Allow-Origin "\$http_origin";
   # https://docs.digitalocean.com/glossary/allow-cred/
   add_header Access-Control-Allow-Credentials 'true';
 

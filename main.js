@@ -90,6 +90,10 @@ expr.use(async function (req, res, next) {
   //   res.status(400).send('INVALID_CONTENT_TYPE')
   //   return;
   // }
+  if(req.protocol == "http"){
+    res.set('Access-Control-Allow-Origin', req.headers.origin)
+    res.set('Access-Control-Allow-Credentials', 'true')
+  }
   if (mgof) {
     res.status(404).send('DATABASE_OFF')
     return;
@@ -200,6 +204,7 @@ expr.get('/', function (req, res) {
   }
   res.send(Object.assign(req.headers, { sess: req.sess }, req.user, { 'usme': usme }))
 })
+
 /*
 Abbreviations:
 usna: username
