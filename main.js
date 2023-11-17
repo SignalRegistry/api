@@ -112,9 +112,9 @@ expr.use(async function (req, res, next) {
       req.sess = coid
       req.secr = (new Date()).toISOString()
       req.seex = (new Date(Number(new Date())+coag)).toISOString()
-      res.cookie('sreg', req.sess, { maxAge: coag, sameSite: 'none', secure: true });
-      res.cookie('srcr', req.secr, { maxAge: coag, sameSite: 'none', secure: true });
-      res.cookie('srex', req.seex, { maxAge: coag, sameSite: 'none', secure: true });
+      res.cookie('sreg', req.sess, { domain:'.signalregistry.net', maxAge: coag, sameSite: 'none', secure: true });
+      res.cookie('srcr', req.secr, { domain:'.signalregistry.net', maxAge: coag, sameSite: 'none', secure: true });
+      res.cookie('srex', req.seex, { domain:'.signalregistry.net', maxAge: coag, sameSite: 'none', secure: true });
     }
     next()
   }
