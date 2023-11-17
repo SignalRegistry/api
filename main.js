@@ -57,8 +57,6 @@ run().catch(() => {
 });
 
 
-
-
 // =============================================================================
 // Server
 // =============================================================================
@@ -84,13 +82,12 @@ expr.use(require('body-parser').urlencoded({ extended: true }));
 expr.use(require('body-parser').json())
 expr.use(require('cookie-parser')())
 
-
 expr.use(async function (req, res, next) {
   // if (req.headers['content-type'] != 'application/json') {
   //   res.status(400).send('INVALID_CONTENT_TYPE')
   //   return;
   // }
-  if(req.protocol == "http"){
+  if(req.host != "api.signalregistry.net"){
     res.set('Access-Control-Allow-Origin', req.headers.origin)
     res.set('Access-Control-Allow-Credentials', 'true')
   }
