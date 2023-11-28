@@ -1,10 +1,10 @@
 // -----------------------------------------------------------------------------
 // Built-in Modules
 // -----------------------------------------------------------------------------
-const path = require('path')
-const http = require('http');
-const asrt = require("assert")
-const cryp = require('crypto')
+const path   = require('path')
+const http   = require('http');
+const assert = require("assert")
+const crypto = require('crypto')
 
 
 // =============================================================================
@@ -13,7 +13,7 @@ const cryp = require('crypto')
 const { MongoClient, ServerApiVersion } = require("mongodb");
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
-const mgcl = new MongoClient('mongodb://127.0.0.1:27017', {
+const mongo_client = new MongoClient('mongodb://127.0.0.1:27017', {
   serverApi: {
     version: ServerApiVersion.v1,
     strict: true,
@@ -25,31 +25,31 @@ const mgcl = new MongoClient('mongodb://127.0.0.1:27017', {
   maxPoolSize: 20
 });
 
-let mgof = true
-mgcl.on('serverHeartbeatFailed', event => {
-  if (!mgof) console.log("[ERROR] Database connection is offline.");
-  mgof = true
+let mongo_off = true
+mongo_client.on('serverHeartbeatFailed', event => {
+  if (!mongo_off) console.log("[ERROR] Database connection is offline.");
+  mongo_off = true
 });
-mgcl.on('serverHeartbeatSucceeded', event => {
-  if (mgof) console.log("[INFO] Database connection is online.");
-  mgof = false
+mongo_client.on('serverHeartbeatSucceeded', event => {
+  if (mongo_off) console.log("[INFO] Database connection is online.");
+  mongo_off = false
 });
 
-let mgdb;
+let mongo_database;
 
 async function run() {
   try {
     // Connect the client to the server (optional starting in v4.7)
-    await mgcl.connect();
-    mgof = false
+    await mongo_client.connect();
+    mongo_off = false
 
     // Send a ping to confirm a successful connection
-    await mgcl.db("admin").command({ ping: 1 });
+    await mongo_client.db("admin").command({ ping: 1 });
 
-    mgdb = mgcl.db('signalregistry')
-
-  } finally {
+    mongo_database = mongo_client.db('signalregistry')
     console.log("[INFO] Successfully connected to MongoDB!");
+  } finally {
+    ;
   }
 }
 run().catch(() => {
@@ -60,102 +60,100 @@ run().catch(() => {
 // =============================================================================
 // Server
 // =============================================================================
-const expr = require('express')();
+const express = require('express')();
 const { WebSocketServer } = require('ws');
 
 // Http and Websocket Server
-const port = 3000
-const serv = http.createServer(expr)
-const webs = new WebSocketServer({ server: serv });
-serv.listen(port, () => {
+const port      = 3000
+const server    = http.createServer(express)
+const websocket = new WebSocketServer({ server: server });
+server.listen(port, () => {
   console.log(`[INFO] HTTP server is listening at port ${port}`)
 });
 
 // Middlewares
 let morg = require('morgan')
-morg.token('sess', function (req, res) { return req.sess || 'no-session'.padEnd(32, '#') })
-morg.token('toke', function (req, res) { return req.toke || 'no-token'.padEnd(12, '#') })
-morg.token('usna', function (req, res) { return (req.user) ? req.user['unme'].padEnd(16, '_') : 'no-user'.padEnd(16, '#') })
-expr.use(morg('[LOG] :method :status :response-time :req[content-length] :res[content-length] :sess :toke :usna :url'))
+morg.token('session', function (req, res) { return req.session || req.token || 'no-session'.padEnd(32, '#') })
+morg.token('username', function (req, res) { return  (req.user && req.user['username']) ? req.user['username'].padEnd(16, '_') : 'no-user'.padEnd(16, '#') })
+express.use(morg('[LOG] :method :status :response-time :req[content-length] :res[content-length] :session :username :url'))
 
-expr.use(require('body-parser').urlencoded({ extended: true }));
-expr.use(require('body-parser').json())
-expr.use(require('cookie-parser')())
+express.use(require('body-parser').urlencoded({ extended: true }));
+express.use(require('body-parser').json())
+express.use(require('cookie-parser')())
 
-expr.use(async function (req, res, next) {
+express.use(async function (req, res, next) {
   // if (req.headers['content-type'] != 'application/json') {
   //   res.status(400).send('INVALID_CONTENT_TYPE')
   //   return;
   // }
-  if(req.host != "api.signalregistry.net"){
+  let cookie_domain = '.signalregistry.net'
+  if(req.hostname != "api.signalregistry.net"){
     res.set('Access-Control-Allow-Origin', req.headers.origin)
     res.set('Access-Control-Allow-Credentials', 'true')
+    cookie_domain = '127.0.0.1'
   }
-  if (mgof) {
+  if (mongo_off) {
     res.status(404).send('DATABASE_OFF')
     return;
   }
   if (req.headers.authorization && req.headers.authorization.startsWith("Bearer")) {
-    req.toke = req.headers.authorization.replace('Bearer ', '')
-    // console.log(`[DEBUG]: Bearer token supplied: ${req.toke}`)
+    req.token = req.headers.authorization.replace('Bearer ', '')
+    // console.log(`[DEBUG]: Bearer token supplied: ${req.token}`)
     next()
   }
   else {
     if (req.cookies.sreg) {
-      req.sess = req.cookies.sreg
-      const sess = await mgcl.db("signalregistry").collection("sessions").findOne({ sreg: req.cookies.sreg }, {});
-      if (sess) req.user = { unme: sess.unme, role: sess.role }
+      req.session   = req.cookies.sreg
+      const session = await mongo_client.db("signalregistry").collection("sessions").findOne({ sreg: req.cookies.sreg }, {});
+      if (session) req.user = { username: session.username, role: session.role }
     }
     else {
-      let coid = cryp.randomBytes(16).toString("hex")
-      let coag = 1 * 24 * 60 * 60 * 1000
-      req.sess = coid
-      req.secr = (new Date()).toISOString()
-      req.seex = (new Date(Number(new Date())+coag)).toISOString()
-      res.cookie('sreg', req.sess, { domain:'.signalregistry.net', maxAge: coag, sameSite: 'none', secure: true });
-      res.cookie('srcr', req.secr, { domain:'.signalregistry.net', maxAge: coag, sameSite: 'none', secure: true });
-      res.cookie('srex', req.seex, { domain:'.signalregistry.net', maxAge: coag, sameSite: 'none', secure: true });
+      let cookie_id      = crypto.randomBytes(16).toString("hex")
+      let cookie_timeout = 1 * 24 * 60 * 60 * 1000
+      req.session        = cookie_id
+      req.cookie_created = (new Date()).toISOString()
+      req.cookie_expire  = (new Date(Number(new Date())+cookie_timeout)).toISOString()
+      res.cookie('sreg', req.session, { domain: cookie_domain, maxAge: cookie_timeout, sameSite: 'none', secure: true });
+      res.cookie('srcr', req.cookie_created, { domain: cookie_domain, maxAge: cookie_timeout, sameSite: 'none', secure: true });
+      res.cookie('srex', req.cookie_expire, { domain: cookie_domain, maxAge: cookie_timeout, sameSite: 'none', secure: true });
     }
     next()
   }
 })
 
-
-
-
 // Registry
-expr.get('/:coll', async (req, res) => {
-  const qery = { ownr: req.user ? req.user.unme : req.sess };
-  const rslt = await mgcl.db("signalregistry").collection(req.params.coll).find(qery);
-  res.send(rslt.toArray())
+express.get('/:coll', async (req, res) => {
+  const query  = { owner: req.user ? req.user.username : req.session };
+  const result = await mongo_client.db("signalregistry").collection(req.params.coll).find(query);
+  res.send(result.toArray())
 })
 
 // Registry Data
-expr.get('/:coll/:name', async (req, res) => {
-  const qery = { ownr: req.user ? req.user.unme : req.sess, name: req.params.name };
-  const exst = await mgcl.db("signalregistry").collection(req.params.coll).countDocuments(qery)
-  if (exst == 0)
+express.get('/:coll/:name', async (req, res) => {
+  const query = { owner: req.user ? req.user.username : req.session, name: req.params.name };
+  const exist = await mongo_client.db("signalregistry").collection(req.params.coll).countDocuments(query)
+  if (exist == 0)
     res.status(404).send('[ERROR] Signal not found.')
   else {
-    const rslt = await mgcl.db("signalregistry").collection(req.params.coll).findOne(qery);
-    res.send(rslt)
+    const result = await mongo_client.db("signalregistry").collection(req.params.coll).findOne(query);
+    res.send(result)
   }
 })
 
-expr.post('/:coll/:name', async (req, res) => {
+express.post('/:coll/:name', async (req, res) => {
   if (req.params.coll == 'list'
     && req.body
     && (Array.isArray(req.body) && (typeof req.body[0] == 'string' || typeof req.body[0] == 'number'))) {
-    const item = { ownr: req.user ? req.user.unme : req.sess, name: req.params.name };
-    const exst = await mgcl.db("signalregistry").collection("list").countDocuments(item)
-    if (exst > 0)
+    const item  = { owner: req.user ? req.user.username : req.session, name: req.params.name };
+    const exist = await mongo_client.db("signalregistry").collection("list").countDocuments(item)
+    if (exist > 0)
       res.status(406).send('[ERROR] Duplicate signal name, use PUT request to update signal.')
     else {
-      item.data = req.body
-      item.cdte = new Date().toISOString()
-      const opti = {};
-      const rslt = await mgcl.db("signalregistry").collection("list").insertOne(item, opti);
-      res.send(rslt.acknowledged)
+      item.data        = req.body
+      item.create_date = new Date().toISOString()
+      const option     = {};
+      const result     = await mongo_client.db("signalregistry").collection("list").insertOne(item, option);
+      res.send(result.acknowledged)
     }
   }
   else {
@@ -163,20 +161,20 @@ expr.post('/:coll/:name', async (req, res) => {
   }
 })
 
-expr.put('/:coll/:name', async (req, res) => {
+express.put('/:coll/:name', async (req, res) => {
   if (req.params.coll == 'list'
     && req.body
     && (Array.isArray(req.body) && (typeof req.body[0] == 'string' || typeof req.body[0] == 'number'))) {
-    const item = { ownr: req.user ? req.user.unme : req.sess, name: req.params.name };
-    const exst = await mgcl.db("signalregistry").collection("list").countDocuments(item)
-    if (exst == 0)
+    const item  = { owner: req.user ? req.user.username : req.session, name: req.params.name };
+    const exist = await mongo_client.db("signalregistry").collection("list").countDocuments(item)
+    if (exist == 0)
       res.status(404).send('[ERROR] Signal not found, create signal first with POST request.')
     else {
-      const qery = { ownr: req.user ? req.user.unme : req.sess, name: req.params.name };
-      const updt = { $set: { udte: new Date().toISOString() }, $push: { 'data': { $each: req.body } } }
-      const opti = {};
-      const rslt = await mgcl.db("signalregistry").collection("list").updateOne(qery, updt, opti);
-      res.send(rslt.acknowledged)
+      const query  = { owner: req.user ? req.user.username : req.session, name: req.params.name };
+      const update = { $set: { last_update: new Date().toISOString() }, $push: { 'data': { $each: req.body } } }
+      const option = {};
+      const result = await mongo_client.db("signalregistry").collection("list").updateOne(query, update, option);
+      res.send(result.acknowledged)
     }
   }
   else {
@@ -184,44 +182,23 @@ expr.put('/:coll/:name', async (req, res) => {
   }
 })
 
-expr.delete('/:coll/:name', async (req, res) => {
-  const qery = { ownr: req.user ? req.user.unme : req.sess, name: req.params.name };
-  const exst = await mgcl.db("signalregistry").collection(req.params.coll).countDocuments(qery)
-  if (exst == 0)
+express.delete('/:coll/:name', async (req, res) => {
+  const query = { owner: req.user ? req.user.username : req.session, name: req.params.name };
+  const exist = await mongo_client.db("signalregistry").collection(req.params.coll).countDocuments(query)
+  if (exist == 0)
     res.status(404).send('[ERROR] Signal not found.')
   else {
-    const rslt = await mgcl.db("signalregistry").collection(req.params.coll).deleteOne(qery);
-    res.send(rslt.acknowledged)
+    const result = await mongo_client.db("signalregistry").collection(req.params.coll).deleteOne(query);
+    res.send(result.acknowledged)
   }
 })
-
 
 // Endpoints
-expr.get('/', function (req, res) {
-  // res.send({ sess: req.sess })
-  let usme = process.memoryUsage()
-  for (let item of Object.keys(usme)) {
-    usme[item] = `${Math.round(usme[item] / 1024 / 1024 * 100) / 100}MB`;
+express.get('/', function (req, res) {
+  // res.send({ session: req.session })
+  let used_memory = process.memoryUsage()
+  for (let item of Object.keys(used_memory)) {
+    used_memory[item] = `${Math.round(used_memory[item] / 1024 / 1024 * 100) / 100}MB`;
   }
-  res.send(Object.assign(req.headers, req.user, { 'usme': usme }))
+  res.send(Object.assign(req.headers, req.user, { 'used_memory': used_memory }))
 })
-
-/*
-Abbreviations:
-coid: cookie id
-coag: cookie age
-sess: session
-secr: session create date
-seex: session expire date
-
-usna: username
-usme: used memory
-qery: query
-updt: update
-opti: option
-rslt: result
-exst: exist
-*/
-
-
-
