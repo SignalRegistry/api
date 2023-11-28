@@ -102,9 +102,9 @@ express.use(async function (req, res, next) {
     next()
   }
   else {
-    if (req.cookies.sreg) {
-      req.session   = req.cookies.sreg
-      const session = await mongo_client.db("signalregistry").collection("sessions").findOne({ sreg: req.cookies.sreg }, {});
+    if (req.cookies._sreg_id) {
+      req.session   = req.cookies._sreg_id
+      const session = await mongo_client.db("signalregistry").collection("sessions").findOne({ _sreg_id: req.cookies._sreg_id }, {});
       if (session) req.user = { username: session.username, role: session.role }
     }
     else {
@@ -113,9 +113,9 @@ express.use(async function (req, res, next) {
       req.session        = cookie_id
       req.cookie_created = (new Date()).toISOString()
       req.cookie_expire  = (new Date(Number(new Date())+cookie_timeout)).toISOString()
-      res.cookie('sreg', req.session, { domain: cookie_domain, maxAge: cookie_timeout, sameSite: 'none', secure: true });
-      res.cookie('srcr', req.cookie_created, { domain: cookie_domain, maxAge: cookie_timeout, sameSite: 'none', secure: true });
-      res.cookie('srex', req.cookie_expire, { domain: cookie_domain, maxAge: cookie_timeout, sameSite: 'none', secure: true });
+      res.cookie('_sreg_id', req.session, { domain: cookie_domain, maxAge: cookie_timeout, sameSite: 'none', secure: true });
+      res.cookie('_sreg_cr', req.cookie_created, { domain: cookie_domain, maxAge: cookie_timeout, sameSite: 'none', secure: true });
+      res.cookie('_sreg_ex', req.cookie_expire, { domain: cookie_domain, maxAge: cookie_timeout, sameSite: 'none', secure: true });
     }
     next()
   }
