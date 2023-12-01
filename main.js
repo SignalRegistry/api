@@ -167,8 +167,13 @@ express.put('/:coll/:name', async (req, res) => {
     && (Array.isArray(req.body) && (typeof req.body[0] == 'string' || typeof req.body[0] == 'number'))) {
     const item  = { owner: req.user ? req.user.username : req.session, name: req.params.name };
     const exist = await mongo_client.db("signalregistry").collection("list").countDocuments(item)
-    if (exist == 0)
-      res.status(404).send('[ERROR] Signal not found, create signal first with POST request.')
+    if (exist == 0){
+      item.data        = req.body
+      item.create_date = new Date().toISOString()
+      const option     = {};
+      const result     = await mongo_client.db("signalregistry").collection("list").insertOne(item, option);
+      res.send(result.acknowledged)
+    }
     else {
       const query  = { owner: req.user ? req.user.username : req.session, name: req.params.name };
       const update = { $set: { last_update: new Date().toISOString() }, $push: { 'data': { $each: req.body } } }
