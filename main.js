@@ -90,6 +90,7 @@ express.use(async function (req, res, next) {
   if(req.hostname != "api.signalregistry.net"){
     res.set('Access-Control-Allow-Origin', req.headers.origin)
     res.set('Access-Control-Allow-Credentials', 'true')
+    res.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE')
     cookie_domain = '127.0.0.1'
   }
   if (mongo_off) {
@@ -123,9 +124,23 @@ express.use(async function (req, res, next) {
 
 // Registry
 express.get('/:coll', async (req, res) => {
-  const query  = { owner: req.user ? req.user.username : req.session };
-  const result = await mongo_client.db("signalregistry").collection(req.params.coll).find(query);
-  res.send(result.toArray())
+  // const query      = { owner: req.user ? req.user.username : req.session };
+  // const projection = {_id:0, data:0}
+  const pipeline   = [
+    { "$match"   : { owner: req.user ? req.user.username : req.session } },
+    { "$project"   : { 
+      owner       : 1,
+      name        : 1,
+      create_date : 1,
+      last_update : 1,
+      type        : { $type: { $first: "$data" } },
+      count       : { $size: "$data" }
+      // count       : { $cond: { if: { $isArray: "$data" }, then: { $size: "$data" }, else: "NA"} } }
+    }
+    }
+  ];
+  const result     = mongo_client.db("signalregistry").collection(req.params.coll).aggregate(pipeline);
+  res.send(await result.toArray())
 })
 
 // Registry Data
@@ -140,44 +155,24 @@ express.get('/:coll/:name', async (req, res) => {
   }
 })
 
-express.post('/:coll/:name', async (req, res) => {
-  if (req.params.coll == 'list'
-    && req.body
-    && (Array.isArray(req.body) && (typeof req.body[0] == 'string' || typeof req.body[0] == 'number'))) {
-    const item  = { owner: req.user ? req.user.username : req.session, name: req.params.name };
-    const exist = await mongo_client.db("signalregistry").collection("list").countDocuments(item)
-    if (exist > 0)
-      res.status(406).send('[ERROR] Duplicate signal name, use PUT request to update signal.')
-    else {
-      item.data        = req.body
-      item.create_date = new Date().toISOString()
-      const option     = {};
-      const result     = await mongo_client.db("signalregistry").collection("list").insertOne(item, option);
-      res.send(result.acknowledged)
-    }
-  }
-  else {
-    res.status(406).send('[ERROR] Unidentified signal type.')
-  }
-})
-
 express.put('/:coll/:name', async (req, res) => {
   if (req.params.coll == 'list'
     && req.body
-    && (Array.isArray(req.body) && (typeof req.body[0] == 'string' || typeof req.body[0] == 'number'))) {
+    && (Array.isArray(req.body.data) && (typeof req.body.data[0] == 'string' || typeof req.body.data[0] == 'number'))) {
     const item  = { owner: req.user ? req.user.username : req.session, name: req.params.name };
     const exist = await mongo_client.db("signalregistry").collection("list").countDocuments(item)
     if (exist == 0){
-      item.data        = req.body
-      item.create_date = new Date().toISOString()
+      item.data        = req.body.data
+      item.create_date = new Date()
+      item.last_update = item.create_date
       const option     = {};
       const result     = await mongo_client.db("signalregistry").collection("list").insertOne(item, option);
       res.send(result.acknowledged)
     }
     else {
       const query  = { owner: req.user ? req.user.username : req.session, name: req.params.name };
-      const update = { $set: { last_update: new Date().toISOString() }, $push: { 'data': { $each: req.body } } }
-      const option = {};
+      const update = { $set: { last_update: new Date() }, $push: { 'data': { $each: req.body.data } } }
+      const option = {} 
       const result = await mongo_client.db("signalregistry").collection("list").updateOne(query, update, option);
       res.send(result.acknowledged)
     }
