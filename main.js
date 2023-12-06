@@ -127,8 +127,9 @@ express.get('/:coll', async (req, res) => {
   // const query      = { owner: req.user ? req.user.username : req.session };
   // const projection = {_id:0, data:0}
   const pipeline   = [
-    { "$match"   : { owner: req.user ? req.user.username : req.session } },
-    { "$project"   : { 
+    { "$match"   : { owner: !req.user ? req.session : req.user.role !="admin" ? req.user.username : {} } },
+    { "$project" : { _id : 0 } },
+    { "$project" : { 
       owner       : 1,
       name        : 1,
       create_date : 1,
@@ -136,8 +137,15 @@ express.get('/:coll', async (req, res) => {
       type        : { $type: { $first: "$data" } },
       count       : { $size: "$data" }
       // count       : { $cond: { if: { $isArray: "$data" }, then: { $size: "$data" }, else: "NA"} } }
-    }
-    }
+    }},
+    // data types
+    // { "$project" : { 
+    //   data        : 1,
+    // }},
+    // { "$unwind"   : "$data" },
+    // { "$project" : { 
+    //   type        : { $type: "$data" } 
+    // }},
   ];
   const result     = mongo_client.db("signalregistry").collection(req.params.coll).aggregate(pipeline);
   res.send(await result.toArray())
