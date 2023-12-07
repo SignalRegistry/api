@@ -175,21 +175,18 @@ express.put('/:coll/:name', async (req, res) => {
     && (Array.isArray(req.body.data) && (typeof req.body.data[0] == 'string' || typeof req.body.data[0] == 'number'))) {
     const item  = { owner: req.user ? req.user.username : req.session, name: req.params.name };
     const exist = await mongo_client.db("signalregistry").collection("list").countDocuments(item)
+    let update, option
     if (exist == 0){
-      item.data        = req.body.data
-      item.create_date = new Date()
-      item.last_update = item.create_date
-      const option     = {};
-      const result     = await mongo_client.db("signalregistry").collection("list").insertOne(item, option);
-      res.send(result.acknowledged)
+      item.data = req.body.data
+      update    = { "$currentDate": { "create_date": true, "last_update": true }, "$set": item }
+      option    = { upsert: true }
     }
     else {
-      const query  = { owner: req.user ? req.user.username : req.session, name: req.params.name };
-      const update = { $set: { last_update: new Date() }, $push: { 'data': { $each: req.body.data } } }
-      const option = {} 
-      const result = await mongo_client.db("signalregistry").collection("list").updateOne(query, update, option);
-      res.send(result.acknowledged)
+      update = { "$currentDate": { "last_update": true } , $push: { 'data': { $each: req.body.data } } }
+      option = {} 
     }
+    const result = await mongo_client.db("signalregistry").collection("list").updateOne(item, update, option);
+    res.send(result.acknowledged)
   }
   else {
     res.status(406).send('[ERROR] Unidentified signal type.')
