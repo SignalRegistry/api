@@ -160,13 +160,7 @@ express.get('/:coll', async (req, res) => {
 // Registry Data
 express.get('/:coll/:name', async (req, res) => {
   const query = { owner: req.user ? req.user.username : req.session, name: req.params.name };
-  const exist = await mongo_client.db("signalregistry").collection(req.params.coll).countDocuments(query)
-  if (exist == 0)
-    res.status(404).send('[ERROR] Signal not found.')
-  else {
-    const result = await mongo_client.db("signalregistry").collection(req.params.coll).findOne(query);
-    res.send(result)
-  }
+  res.send(await mongo_client.db("signalregistry").collection(req.params.coll).findOne(query))
 })
 
 express.put('/:coll/:name', async (req, res) => {
