@@ -110,7 +110,7 @@ express.use(async function (req, res, next) {
     }
     else {
       let cookie_id      = crypto.randomBytes(16).toString("hex")
-      let cookie_timeout = 1 * 24 * 60 * 60 * 1000
+      let cookie_timeout = 30 * 24 * 60 * 60 * 1000
       req.session        = cookie_id
       req.cookie_created = (new Date()).toISOString()
       req.cookie_expire  = (new Date(Number(new Date())+cookie_timeout)).toISOString()
