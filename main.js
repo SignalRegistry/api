@@ -124,8 +124,6 @@ express.use(async function (req, res, next) {
 
 // Registry
 express.get('/:coll', async (req, res) => {
-  // const query      = { owner: req.user ? req.user.username : req.session };
-  // const projection = {_id:0, data:0}
   const pipeline   = [
     { "$match"   : { owner: !req.user ? req.session : req.user.role !="admin" ? req.user.username : {} } },
     { "$project" : { _id : 0 } },
@@ -134,19 +132,27 @@ express.get('/:coll', async (req, res) => {
       name        : 1,
       create_date : 1,
       last_update : 1,
-      type        : { $type: { $first: "$data" } },
-      count       : { $size: "$data" }
-      // count       : { $cond: { if: { $isArray: "$data" }, then: { $size: "$data" }, else: "NA"} } }
+      count       : { $size: "$data" },
+      types       : { 
+        $reduce: {
+          input        : "$data" ,
+          initialValue : [],
+          in           : 
+          {
+            $concatArrays : [ 
+              "$$value", 
+              { "$cond": {
+                    if   : { $in: [ { $type : "$$this"}, "$$value" ] },
+                    then : [],
+                    else : [{ $type : "$$this"}]
+                  }
+              }
+            ]
+          }
+        }
+      }
     }},
-    // data types
-    // { "$project" : { 
-    //   data        : 1,
-    // }},
-    // { "$unwind"   : "$data" },
-    // { "$project" : { 
-    //   type        : { $type: "$data" } 
-    // }},
-  ];
+  ]
   const result     = mongo_client.db("signalregistry").collection(req.params.coll).aggregate(pipeline);
   res.send(await result.toArray())
 })
