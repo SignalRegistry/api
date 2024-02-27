@@ -111,7 +111,7 @@ app.use(async function (req, res, next) {
 
 // Registry
 app.get('/:coll', async (req, res) => {
-  const pipeline   = [
+  const pipeline = [
     { "$match"   : { owner: !req.user ? req.session : req.user.role !="admin" ? req.user.username : {} } },
     { "$project" : { _id : 0 } },
     { "$project" : { 
@@ -140,7 +140,7 @@ app.get('/:coll', async (req, res) => {
       }
     }},
   ]
-  const result     = mongo_client.db("signalregistry").collection(req.params.coll).aggregate(pipeline);
+  const result = mongo_client.db("signalregistry").collection(req.params.coll).aggregate(pipeline);
   res.send(await result.toArray())
 })
 
@@ -151,23 +151,33 @@ app.get('/:coll/:name', async (req, res) => {
 })
 
 app.put('/:coll/:name', async (req, res) => {
-  if (req.params.coll == 'list'
-    && req.body
-    && (Array.isArray(req.body.data) && (typeof req.body.data[0] == 'string' || typeof req.body.data[0] == 'number'))) {
-    const item  = { owner: req.user ? req.user.username : req.session, name: req.params.name };
-    const exist = await mongo_client.db("signalregistry").collection("list").countDocuments(item)
-    let update, option
-    if (exist == 0){
-      item.data = req.body.data
+  if (req.params.coll == 'list') {
+    if (!Object.keys(req.body).length) {
+      const item  = { owner: req.user ? req.user.username : req.session, name: req.params.name };
+      item.data = []
+      let update, option
       update    = { "$currentDate": { "create_date": true, "last_update": true }, "$set": item }
       option    = { upsert: true }
+      const result = await mongo_client.db("signalregistry").collection("list").updateOne(item, update, option);
+      res.send(result.acknowledged)
     }
-    else {
-      update = { "$currentDate": { "last_update": true } , $push: { 'data': { $each: req.body.data } } }
-      option = {} 
+    else if(req.body
+      && (Array.isArray(req.body.data) && (typeof req.body.data[0] == 'string' || typeof req.body.data[0] == 'number'))) {
+      const item  = { owner: req.user ? req.user.username : req.session, name: req.params.name };
+      const exist = await mongo_client.db("signalregistry").collection("list").countDocuments(item)
+      let update, option
+      if (exist == 0){
+        item.data = req.body.data
+        update    = { "$currentDate": { "create_date": true, "last_update": true }, "$set": item }
+        option    = { upsert: true }
+      }
+      else {
+        update = { "$currentDate": { "last_update": true } , $push: { 'data': { $each: req.body.data } } }
+        option = {} 
+      }
+      const result = await mongo_client.db("signalregistry").collection("list").updateOne(item, update, option);
+      res.send(result.acknowledged)
     }
-    const result = await mongo_client.db("signalregistry").collection("list").updateOne(item, update, option);
-    res.send(result.acknowledged)
   }
   else {
     res.status(406).send('[ERROR] Unidentified signal type.')
