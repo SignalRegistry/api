@@ -83,11 +83,9 @@ app.use(require('express').json())
 app.use(require('helmet')())
 
 app.use(async function (req, res, next) {
-  if(req.hostname != "api.signalregistry.net"){
-    res.set('Access-Control-Allow-Origin', req.headers.origin)
-    res.set('Access-Control-Allow-Credentials', 'true')
-    res.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE')
-  }
+  res.set('Access-Control-Allow-Origin', req.headers.origin)
+  res.set('Access-Control-Allow-Credentials', 'true')
+  res.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE')
   
   if (mongo_off) {
     res.status(404).send('DATABASE_OFF')

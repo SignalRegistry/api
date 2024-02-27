@@ -2,6 +2,8 @@
 # Node.js server
 ################################################################################
 npm i 
+pm2 stop api
+pm2 delete api
 pm2 start main.js --name api
 pm2 save
 
@@ -18,13 +20,8 @@ server {
 
   server_name api.signalregistry.net;
 
-  # https://docs.digitalocean.com/glossary/allow-origin/
-  add_header Access-Control-Allow-Origin "\$http_origin";
-  # https://docs.digitalocean.com/glossary/allow-cred/
-  add_header Access-Control-Allow-Credentials 'true';
-
   location / {
-    proxy_pass http://localhost:3000;
+    proxy_pass http://localhost:7339;
     proxy_http_version 1.1;
     proxy_set_header Upgrade \$http_upgrade;
     proxy_set_header Connection 'upgrade';
