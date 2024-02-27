@@ -10,8 +10,12 @@
   "author": "Hüseyin YİĞİT",
   "license": "ISC",
   "dependencies": {
+    "bootstrap": "^5.3.3",
     "cookie-parser": "^1.4.6",
     "express": "^4.18.2",
+    "helmet": "^7.1.0",
+    "jquery": "^3.7.1",
+    "js-cookie": "^3.0.5",
     "mongodb": "^6.0.0",
     "morgan": "^1.10.0",
     "ws": "^8.14.2"

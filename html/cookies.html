@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cookies</title>
+
+  <link rel="stylesheet" href="../node_modules/bootstrap/dist/css/bootstrap.min.css">
+
+  <script src="../node_modules/bootstrap/dist/js/bootstrap.min.js"></script>
+  <script src="../node_modules/jquery/dist/jquery.min.js"></script>
+  <script src="../node_modules/js-cookie/dist/js.cookie.min.js"></script>
+</head>
+
+<body>
+
+  <script>
+    var inFifteenMinutes = new Date(new Date().getTime() + 15 * 60 * 1000);
+    Cookies.set('foo', 'bar', {
+        expires: inFifteenMinutes
+    });
+
+    $.ajaxSetup({
+        dataType: 'json',
+        xhrFields: {
+          withCredentials: true
+        },
+        crossDomain: true
+    });
+
+    // const api_url = (location.protocol == "http:") ? "http://127.0.0.1:7339" : "https://api.signalregistry.net"
+    // const api_url = "http://127.0.0.1:7339"
+    const api_url = "https://api.signalregistry.net"
+
+    $.get(api_url, (data)=>{
+      console.log(data)
+      // $("body").append(`
+      //   <div class="row">
+      //     <div class="col-auto">
+      //       <div> [INFO] session_id </div>   
+      //       <div> [INFO] session_start </div>   
+      //       <div> [INFO] session_end </div>   
+      //     </div>
+      //     <div class="col-auto">
+      //       <div> = </div>   
+      //       <div> = </div>   
+      //       <div> = </div>   
+      //     </div>
+      //     <div class="col-auto">
+      //       // <div> ${parseCookie(document.cookie)._sreg_id} </div>   
+      //       // <div> ${parseCookie(document.cookie)._sreg_cr} </div>   
+      //       // <div> ${parseCookie(document.cookie)._sreg_ex} </div>   
+      //     </div>
+      //   </div>
+      // `)
+      $("body").append(`
+        <div class="row">
+          <div class="col-auto">
+            <div> [INFO] session_id </div>   
+            <div> [INFO] session_start </div>   
+            <div> [INFO] session_end </div>   
+          </div>
+          <div class="col-auto">
+            <div> = </div>   
+            <div> = </div>   
+            <div> = </div>   
+          </div>
+          <div class="col-auto">
+            // <div> ${parseCookie(document.cookie).foo} </div>   
+          </div>
+        </div>
+      `)
+    })
+
+    const parseCookie = str =>
+      str
+        .split(';')
+        .map(v => v.split('='))
+        .reduce((acc, v) => {
+          acc[decodeURIComponent(v[0].trim())] = decodeURIComponent(v[1].trim());
+          return acc;
+        }, {});
+
+
+
+  </script>
+
+</body>
+
+</html>

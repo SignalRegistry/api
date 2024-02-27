@@ -60,12 +60,12 @@ run().catch(() => {
 // =============================================================================
 // Server
 // =============================================================================
-const express = require('express')();
+const app = require('express')();
 const { WebSocketServer } = require('ws');
 
 // Http and Websocket Server
-const port      = 3000
-const server    = http.createServer(express)
+const port      = 7339
+const server    = http.createServer(app)
 const websocket = new WebSocketServer({ server: server });
 server.listen(port, () => {
   console.log(`[INFO] HTTP server is listening at port ${port}`)
@@ -75,13 +75,15 @@ server.listen(port, () => {
 let morg = require('morgan')
 morg.token('session', function (req, res) { return req.session || req.token || 'no-session'.padEnd(32, '#') })
 morg.token('username', function (req, res) { return  (req.user && req.user['username']) ? req.user['username'].padEnd(16, '_') : 'no-user'.padEnd(16, '#') })
-express.use(morg('[LOG] :method :status :response-time :req[content-length] :res[content-length] :session :username :url'))
+app.use(morg('[LOG] :method :status :response-time :req[content-length] :res[content-length] :session :username :url'))
 
-express.use(require('body-parser').urlencoded({ extended: true }));
-express.use(require('body-parser').json())
-express.use(require('cookie-parser')())
+app.use(require('body-parser').urlencoded({ extended: true }));
+app.use(require('body-parser').json())
+app.use(require('cookie-parser')())
+app.use(require('express').json())
+app.use(require('helmet')())
 
-express.use(async function (req, res, next) {
+app.use(async function (req, res, next) {
   // if (req.headers['content-type'] != 'application/json') {
   //   res.status(400).send('INVALID_CONTENT_TYPE')
   //   return;
@@ -114,16 +116,16 @@ express.use(async function (req, res, next) {
       req.session        = cookie_id
       req.cookie_created = (new Date()).toISOString()
       req.cookie_expire  = (new Date(Number(new Date())+cookie_timeout)).toISOString()
-      res.cookie('_sreg_id', req.session, { domain: cookie_domain, maxAge: cookie_timeout, sameSite: 'none', secure: true });
-      res.cookie('_sreg_cr', req.cookie_created, { domain: cookie_domain, maxAge: cookie_timeout, sameSite: 'none', secure: true });
-      res.cookie('_sreg_ex', req.cookie_expire, { domain: cookie_domain, maxAge: cookie_timeout, sameSite: 'none', secure: true });
+      // res.cookie('_sreg_id', req.session, { domain: cookie_domain, maxAge: cookie_timeout, sameSite: 'none', secure: true });
+      // res.cookie('_sreg_cr', req.cookie_created, { domain: cookie_domain, maxAge: cookie_timeout, sameSite: 'none', secure: true });
+      // res.cookie('_sreg_ex', req.cookie_expire, { domain: cookie_domain, maxAge: cookie_timeout, sameSite: 'none', secure: true });
     }
     next()
   }
 })
 
 // Registry
-express.get('/:coll', async (req, res) => {
+app.get('/:coll', async (req, res) => {
   const pipeline   = [
     { "$match"   : { owner: !req.user ? req.session : req.user.role !="admin" ? req.user.username : {} } },
     { "$project" : { _id : 0 } },
@@ -158,12 +160,12 @@ express.get('/:coll', async (req, res) => {
 })
 
 // Registry Data
-express.get('/:coll/:name', async (req, res) => {
+app.get('/:coll/:name', async (req, res) => {
   const query = { owner: req.user ? req.user.username : req.session, name: req.params.name };
   res.send(await mongo_client.db("signalregistry").collection(req.params.coll).findOne(query))
 })
 
-express.put('/:coll/:name', async (req, res) => {
+app.put('/:coll/:name', async (req, res) => {
   if (req.params.coll == 'list'
     && req.body
     && (Array.isArray(req.body.data) && (typeof req.body.data[0] == 'string' || typeof req.body.data[0] == 'number'))) {
@@ -187,7 +189,7 @@ express.put('/:coll/:name', async (req, res) => {
   }
 })
 
-express.delete('/:coll/:name', async (req, res) => {
+app.delete('/:coll/:name', async (req, res) => {
   const query = { owner: req.user ? req.user.username : req.session, name: req.params.name };
   const exist = await mongo_client.db("signalregistry").collection(req.params.coll).countDocuments(query)
   if (exist == 0)
@@ -199,7 +201,7 @@ express.delete('/:coll/:name', async (req, res) => {
 })
 
 // Endpoints
-express.get('/', function (req, res) {
+app.get('/', function (req, res) {
   // res.send({ session: req.session })
   let used_memory = process.memoryUsage()
   for (let item of Object.keys(used_memory)) {
