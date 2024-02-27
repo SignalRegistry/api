@@ -87,15 +87,8 @@ app.use(async function (req, res, next) {
     res.set('Access-Control-Allow-Origin', req.headers.origin)
     res.set('Access-Control-Allow-Credentials', 'true')
     res.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE')
-    cookie_domain = '127.0.0.1'
   }
-  // console.log(req.headers)
-
-  // if (req.headers['content-type'] != 'application/json') {
-  //   res.status(400).send('INVALID_CONTENT_TYPE')
-  //   return;
-  // }
-  console.log(req.query)
+  
   if (mongo_off) {
     res.status(404).send('DATABASE_OFF')
     return;
