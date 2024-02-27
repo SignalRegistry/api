@@ -77,24 +77,25 @@ morg.token('session', function (req, res) { return req.session || req.token || '
 morg.token('username', function (req, res) { return  (req.user && req.user['username']) ? req.user['username'].padEnd(16, '_') : 'no-user'.padEnd(16, '#') })
 app.use(morg('[LOG] :method :status :response-time :req[content-length] :res[content-length] :session :username :url'))
 
-app.use(require('body-parser').urlencoded({ extended: true }));
-app.use(require('body-parser').json())
+app.use(require('express').urlencoded({ extended: true }));
 app.use(require('cookie-parser')())
 app.use(require('express').json())
 app.use(require('helmet')())
 
 app.use(async function (req, res, next) {
-  // if (req.headers['content-type'] != 'application/json') {
-  //   res.status(400).send('INVALID_CONTENT_TYPE')
-  //   return;
-  // }
-  let cookie_domain = '.signalregistry.net'
   if(req.hostname != "api.signalregistry.net"){
     res.set('Access-Control-Allow-Origin', req.headers.origin)
     res.set('Access-Control-Allow-Credentials', 'true')
     res.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE')
     cookie_domain = '127.0.0.1'
   }
+  // console.log(req.headers)
+
+  // if (req.headers['content-type'] != 'application/json') {
+  //   res.status(400).send('INVALID_CONTENT_TYPE')
+  //   return;
+  // }
+  console.log(req.query)
   if (mongo_off) {
     res.status(404).send('DATABASE_OFF')
     return;
@@ -105,20 +106,13 @@ app.use(async function (req, res, next) {
     next()
   }
   else {
-    if (req.cookies._sreg_id) {
-      req.session   = req.cookies._sreg_id
-      const session = await mongo_client.db("signalregistry").collection("sessions").findOne({ _sreg_id: req.cookies._sreg_id }, {});
+    if (req.query.sessionId) {
+      req.session   = req.query.sessionId
+      const session = await mongo_client.db("signalregistry").collection("sessions").findOne({ id: req.session }, {});
       if (session) req.user = { username: session.username, role: session.role }
     }
     else {
-      let cookie_id      = crypto.randomBytes(16).toString("hex")
-      let cookie_timeout = 30 * 24 * 60 * 60 * 1000
-      req.session        = cookie_id
-      req.cookie_created = (new Date()).toISOString()
-      req.cookie_expire  = (new Date(Number(new Date())+cookie_timeout)).toISOString()
-      // res.cookie('_sreg_id', req.session, { domain: cookie_domain, maxAge: cookie_timeout, sameSite: 'none', secure: true });
-      // res.cookie('_sreg_cr', req.cookie_created, { domain: cookie_domain, maxAge: cookie_timeout, sameSite: 'none', secure: true });
-      // res.cookie('_sreg_ex', req.cookie_expire, { domain: cookie_domain, maxAge: cookie_timeout, sameSite: 'none', secure: true });
+      req.session = null
     }
     next()
   }
@@ -207,5 +201,5 @@ app.get('/', function (req, res) {
   for (let item of Object.keys(used_memory)) {
     used_memory[item] = `${Math.round(used_memory[item] / 1024 / 1024 * 100) / 100}MB`;
   }
-  res.send(Object.assign(req.headers, req.user, { 'used_memory': used_memory }))
+  res.send(Object.assign(req.headers, {session: req.session}, { 'used_memory': used_memory }))
 })

@@ -16,73 +16,56 @@
 <body>
 
   <script>
-    var inFifteenMinutes = new Date(new Date().getTime() + 15 * 60 * 1000);
-    Cookies.set('foo', 'bar', {
-        expires: inFifteenMinutes
-    });
 
-    $.ajaxSetup({
-        dataType: 'json',
-        xhrFields: {
-          withCredentials: true
-        },
-        crossDomain: true
-    });
+    // const apiUrl = (location.protocol == "http:") ? "http://127.0.0.1:7339" : "https://api.signalregistry.net"
+    // const apiUrl = "https://api.signalregistry.net"
+    const apiUrl = "http://127.0.0.1:7339"
 
-    // const api_url = (location.protocol == "http:") ? "http://127.0.0.1:7339" : "https://api.signalregistry.net"
-    // const api_url = "http://127.0.0.1:7339"
-    const api_url = "https://api.signalregistry.net"
 
-    $.get(api_url, (data)=>{
-      console.log(data)
-      // $("body").append(`
-      //   <div class="row">
-      //     <div class="col-auto">
-      //       <div> [INFO] session_id </div>   
-      //       <div> [INFO] session_start </div>   
-      //       <div> [INFO] session_end </div>   
-      //     </div>
-      //     <div class="col-auto">
-      //       <div> = </div>   
-      //       <div> = </div>   
-      //       <div> = </div>   
-      //     </div>
-      //     <div class="col-auto">
-      //       // <div> ${parseCookie(document.cookie)._sreg_id} </div>   
-      //       // <div> ${parseCookie(document.cookie)._sreg_cr} </div>   
-      //       // <div> ${parseCookie(document.cookie)._sreg_ex} </div>   
-      //     </div>
-      //   </div>
-      // `)
-      $("body").append(`
-        <div class="row">
-          <div class="col-auto">
-            <div> [INFO] session_id </div>   
-            <div> [INFO] session_start </div>   
-            <div> [INFO] session_end </div>   
-          </div>
-          <div class="col-auto">
-            <div> = </div>   
-            <div> = </div>   
-            <div> = </div>   
-          </div>
-          <div class="col-auto">
-            // <div> ${parseCookie(document.cookie).foo} </div>   
-          </div>
+    if(!Cookies.get("_sreg_id")) {
+      const cookie_id      = window.crypto.randomUUID()
+      const cookie_timeout = 1 * 1 * 15 * 60 * 1000 // 15 minutes
+      const cookie_created = (new Date()).toISOString()
+      const cookie_expire  = new Date(new Date().getTime() + cookie_timeout)
+
+      Cookies.set("_sreg_id", cookie_id, { expires: cookie_expire })
+      Cookies.set("_sreg_cr", cookie_created, { expires: cookie_expire })
+      Cookies.set("_sreg_ex", cookie_expire.toISOString(), { expires: cookie_expire })
+    }
+    $("body").append(`
+      <div class="row">
+        <div class="col-auto">
+          <div> [INFO] Session ID </div>   
+          <div> [INFO] Session Start </div>   
+          <div> [INFO] Session Stop </div>   
+        </div>
+        <div class="col-auto">
+          <div> = </div>   
+          <div> = </div>   
+          <div> = </div>   
+        </div>
+        <div class="col-auto">
+          <div> ${Cookies.get("_sreg_id")} </div>   
+          <div> ${Cookies.get("_sreg_cr")} </div>   
+          <div> ${Cookies.get("_sreg_ex")} </div>   
+        </div>
+      </div>
+    `)
+
+    $.get(apiUrl, {sessionId:Cookies.get("_sreg_id")}, (data)=>{
+      $("body > .row > .col-auto:eq(0)").append(`
+          <div> [INFO] Server Session </div>   
+        </div>
+      `)
+      $("body > .row > .col-auto:eq(1)").append(`
+          <div> = </div>   
+        </div>
+      `)
+      $("body > .row > .col-auto:eq(2)").append(`
+          <div> ${data.session} </div>   
         </div>
       `)
     })
-
-    const parseCookie = str =>
-      str
-        .split(';')
-        .map(v => v.split('='))
-        .reduce((acc, v) => {
-          acc[decodeURIComponent(v[0].trim())] = decodeURIComponent(v[1].trim());
-          return acc;
-        }, {});
-
-
 
   </script>
 
