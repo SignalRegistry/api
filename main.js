@@ -176,7 +176,7 @@ app.put('/:coll/:name', async (req, res) => {
         option = {} 
       }
       const result = await mongo_client.db("signalregistry").collection("list").updateOne(item, update, option);
-      res.send(result.acknowledged)
+      res.send(result)
     }
   }
   else {
@@ -191,7 +191,7 @@ app.delete('/:coll/:name', async (req, res) => {
     res.status(404).send('[ERROR] Signal not found.')
   else {
     const result = await mongo_client.db("signalregistry").collection(req.params.coll).deleteOne(query);
-    res.send(result.acknowledged)
+    res.send(result)
   }
 })
 
