@@ -97,20 +97,13 @@ app.use(async function (req, res, next) {
     next()
   }
   else {
-    if (req.cookies._sreg_id) {
-      req.session   = req.cookies._sreg_id
-      const session = await mongo_client.db("signalregistry").collection("sessions").findOne({ _sreg_id: req.cookies._sreg_id }, {});
+    if (req.query.sessionId) {
+      req.session   = req.query.sessionId
+      const session = await mongo_client.db("signalregistry").collection("sessions").findOne({ id: req.session }, {});
       if (session) req.user = { username: session.username, role: session.role }
     }
     else {
-      let cookie_id      = crypto.randomBytes(16).toString("hex")
-      let cookie_timeout = 30 * 24 * 60 * 60 * 1000
-      let cookie_secure  = req.headers.origin.includes("https") ? true : false
-      let cookie_domain  = req.headers.origin.includes("https") ? ".signalregistry.net" : ""
-      req.session        = cookie_id
-      res.set('Set-Cookie', `_sreg_id=${req.session}; Path=/; ${cookie_domain ? "Domain="+cookie_domain+";" : ""} ${cookie_secure ? "Secure;" : ""} HttpOnly; SameSite=Strict`) 
-      res.set('Set-Cookie', `_sreg_cr=${(new Date()).toISOString()}; Path=/; ${cookie_domain ? "Domain="+cookie_domain+";" : ""} ${cookie_secure ? "Secure;" : ""} HttpOnly; SameSite=Strict`) 
-      res.set('Set-Cookie', `_sreg_ex=${(new Date(Number(new Date())+cookie_timeout)).toISOString()}; Path=/; ${cookie_domain ? "Domain="+cookie_domain+";" : ""} ${cookie_secure ? "Secure;" : ""} HttpOnly; SameSite=Strict`) 
+      req.session = null
     }
     next()
   }
