@@ -58,15 +58,13 @@ run().catch(() => {
 
 
 // =============================================================================
-// Server
+// HTTP Server
 // =============================================================================
 const app = require('express')();
-const { WebSocketServer } = require('ws');
 
 // Http and Websocket Server
 const port      = 7339
 const server    = http.createServer(app)
-const websocket = new WebSocketServer({ server: server });
 server.listen(port, () => {
   console.log(`[INFO] HTTP server is listening at port ${port}`)
 });
@@ -86,6 +84,7 @@ app.use(async function (req, res, next) {
   res.set('Access-Control-Allow-Origin', req.headers.origin)
   res.set('Access-Control-Allow-Credentials', 'true')
   res.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE')
+  res.set('Access-Control-Allow-Headers', "Access-Control-Allow-Headers, Content-Type")
   
   if (mongo_off) {
     res.status(404).send('DATABASE_OFF')
@@ -108,6 +107,31 @@ app.use(async function (req, res, next) {
     next()
   }
 })
+
+
+// -----------------------------------------------------------------------------
+// HTTP Server: Registry
+// -----------------------------------------------------------------------------
+app.get('/registry', async (req, res) => {
+  const query = { owner: req.user ? req.user.username : req.session };
+  res.send(await mongo_client.db("signalregistry").collection("registry").find(query).toArray())
+})
+
+app.post('/registry', async (req, res) => {
+  const item  = { owner : req.user ? req.user.username : req.session, 
+                  name  : req.body.name,
+                  desc  : req.body.desc || "Description will be added soon." 
+                };
+  let update, option
+  update    = { "$currentDate": { "create_date": true }, "$set": item }
+  option    = { upsert: true }
+  const result = await mongo_client.db("signalregistry").collection("registry").updateOne(item, update, option);
+  res.send(result)
+})
+
+
+
+
 
 // Registry
 app.get('/:coll', async (req, res) => {
@@ -204,3 +228,10 @@ app.get('/', function (req, res) {
   }
   res.send(Object.assign(req.headers, {session: req.session}, { 'used_memory': used_memory }))
 })
+
+// =============================================================================
+// Websocket Server
+// =============================================================================
+const { WebSocketServer } = require('ws');
+
+const websocket = new WebSocketServer({ server: server });
