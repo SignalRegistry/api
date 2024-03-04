@@ -10,9 +10,9 @@ pm2 save
 ################################################################################
 # Nginx server block
 ################################################################################
-rm -f /etc/nginx/sites-enabled/api.signalregistry.net
+unlink /etc/nginx/sites-enabled/api.signalregistry.net 
 nginx -s reload
-cat > /etc/nginx/sites-enabled/api.signalregistry.net <<- EOM
+cat > /etc/nginx/sites-available/api.signalregistry.net <<- EOM
 server {
 
   listen 80;
@@ -31,6 +31,7 @@ server {
   }
 }
 EOM
+ln -s /etc/nginx/sites-available/api.signalregistry.net /etc/nginx/sites-enabled/api.signalregistry.net
 nginx -t
 nginx -s reload
 
