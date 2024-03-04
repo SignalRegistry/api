@@ -81,32 +81,64 @@ app.use(require('express').json())
 app.use(require('helmet')())
 
 app.use(async function (req, res, next) {
+  console.log("Here")
   res.set('Access-Control-Allow-Origin', req.headers.origin)
   res.set('Access-Control-Allow-Credentials', 'true')
   res.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE')
   res.set('Access-Control-Allow-Headers', "Access-Control-Allow-Headers, Content-Type")
   
   if (mongo_off) {
-    res.status(404).send('DATABASE_OFF')
+    res.status(404).send('ERR_DATABASE_OFF')
     return;
   }
-  if (req.headers.authorization && req.headers.authorization.startsWith("Bearer")) {
-    req.token = req.headers.authorization.replace('Bearer ', '')
-    // console.log(`[DEBUG]: Bearer token supplied: ${req.token}`)
+
+  req.user = null
+  if (req.query.sessionId) {
+    req.session   = req.query.sessionId
+    const session = await mongo_client.db("signalregistry").collection("sessions").findOne({ sessionId: req.session }, {});
+    if (session) req.user = { username: session.username, role: session.role }
     next()
   }
-  else {
-    if (req.query.sessionId) {
-      req.session   = req.query.sessionId
-      const session = await mongo_client.db("signalregistry").collection("sessions").findOne({ id: req.session }, {});
-      if (session) req.user = { username: session.username, role: session.role }
-    }
-    else {
-      req.session = null
-    }
-    next()
+  // else if (req.headers.authorization && req.headers.authorization.startsWith("Bearer")) {
+  //   req.session = req.headers.authorization.replace('Bearer ', '')
+  //   // console.log(`[DEBUG]: Bearer token supplied: ${req.token}`)
+  //   next()
+  // }
+  else{
+    res.status(404).send('ERR_SESSION_MISSING')
+    return;
   }
 })
+
+
+// -----------------------------------------------------------------------------
+// HTTP Server: Login
+// -----------------------------------------------------------------------------
+app.get('/login', async (req, res) => {
+  await mongo_client.db("signalregistry").collection("sessions").deleteMany({ sessionId: req.session }, {});
+
+  const user = await mongo_client.db("signalregistry").collection("users").findOne({ 
+    username: req.query.username, 
+    password: req.query.password
+  }, {});
+
+  if(user) {
+    const result = await mongo_client.db("signalregistry").collection("sessions").insertOne({
+      username: user.username,
+      session : req.session,
+      role    : user.role
+    });
+    res.send({ username: user.username, role: user.role })
+  }
+  else {
+    res.sendStatus(401)
+  }
+})
+
+// app.get('/logout', async (req, res) => {
+//   const result = await mongo_client.db("signalregistry").collection("sessions").deleteMany({ sessionId: req.session }, {});
+//   res.send(result)
+// })
 
 
 // -----------------------------------------------------------------------------
