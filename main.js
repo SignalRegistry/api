@@ -1,10 +1,11 @@
 // -----------------------------------------------------------------------------
 // Built-in Modules
 // -----------------------------------------------------------------------------
-const path   = require('path')
-const http   = require('http');
-const assert = require("assert")
-const crypto = require('crypto')
+const path      = require('path')
+const http      = require('http');
+const assert    = require("assert")
+const crypto    = require('crypto')
+const { spawn } = require('node:child_process');
 
 
 // =============================================================================
@@ -107,6 +108,27 @@ app.use(async function (req, res, next) {
     res.status(404).send('ERR_SESSION_MISSING')
     return;
   }
+})
+console.log(__dirname)
+// -----------------------------------------------------------------------------
+// HTTP Server: server
+// -----------------------------------------------------------------------------
+app.get('/server', async (req, res) => {
+  const cmd = spawn('git', ['pull'], {cwd: __dirname});
+
+  ls.stdout.on('data', (data) => {
+    console.log(`stdout: ${data}`);
+  });
+
+  ls.stderr.on('data', (data) => {
+    console.error(`stderr: ${data}`);
+  });
+
+  ls.on('close', (code) => {
+    console.log(`child process exited with code ${code}`);
+  }); 
+
+  res.send(req.user)
 })
 
 
