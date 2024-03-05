@@ -87,7 +87,7 @@ app.use(async function (req, res, next) {
   res.set('Access-Control-Allow-Headers', "Access-Control-Allow-Headers, Content-Type")
   
   if (mongo_off) {
-    res.status(404).send('ERR_DATABASE_OFF')
+    res.status(503).send('ERR_DATABASE_OFF')
     return;
   }
 
