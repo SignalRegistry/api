@@ -81,7 +81,6 @@ app.use(require('express').json())
 app.use(require('helmet')())
 
 app.use(async function (req, res, next) {
-  console.log("Here")
   res.set('Access-Control-Allow-Origin', req.headers.origin)
   res.set('Access-Control-Allow-Credentials', 'true')
   res.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE')
@@ -116,6 +115,7 @@ app.use(async function (req, res, next) {
 // -----------------------------------------------------------------------------
 app.get('/login', async (req, res) => {
   await mongo_client.db("signalregistry").collection("sessions").deleteMany({ sessionId: req.session }, {});
+  await mongo_client.db("signalregistry").collection("sessions").deleteMany({ username: req.query.username }, {});
 
   const user = await mongo_client.db("signalregistry").collection("users").findOne({ 
     username: req.query.username, 
@@ -124,9 +124,9 @@ app.get('/login', async (req, res) => {
 
   if(user) {
     const result = await mongo_client.db("signalregistry").collection("sessions").insertOne({
-      username: user.username,
-      session : req.session,
-      role    : user.role
+      username : user.username,
+      sessionId: req.session,
+      role     : user.role
     });
     res.send({ username: user.username, role: user.role })
   }
@@ -140,6 +140,12 @@ app.get('/login', async (req, res) => {
 //   res.send(result)
 // })
 
+// -----------------------------------------------------------------------------
+// HTTP Server: User
+// -----------------------------------------------------------------------------
+app.get('/user', async (req, res) => {
+  res.send(req.user)
+})
 
 // -----------------------------------------------------------------------------
 // HTTP Server: Registry
