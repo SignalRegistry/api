@@ -102,7 +102,7 @@ app.use(async function (req, res, next) {
         role     : `guest`
       }
       const result = await mongo_client.db("signalregistry").collection("sessions").insertOne(session)
-      req.user = result.insertedId ? { username: session.username, role: session.role } : {}
+      req.user = result.insertedId ? { username: session.username, role: session.role } : { username: "guest", role: "anonymous" }
     }
     next()
   }
@@ -141,26 +141,30 @@ app.get('/server', async (req, res) => {
 // -----------------------------------------------------------------------------
 // HTTP Server: Login
 // -----------------------------------------------------------------------------
-app.get('/login', async (req, res) => {
+app.post('/login', async (req, res) => {
   await mongo_client.db("signalregistry").collection("sessions").deleteMany({ sessionId: req.session }, {});
-  await mongo_client.db("signalregistry").collection("sessions").deleteMany({ username: req.query.username }, {});
 
-  const user = await mongo_client.db("signalregistry").collection("users").findOne({ 
-    username: req.query.username, 
-    password: req.query.password
-  }, {});
-
-  if(user) {
-    const result = await mongo_client.db("signalregistry").collection("sessions").insertOne({
-      username : user.username,
-      sessionId: req.session,
-      role     : user.role
-    });
-    res.send({ username: user.username, role: user.role })
+  if(req.query.username && req.query.password) {
+    await mongo_client.db("signalregistry").collection("sessions").deleteMany({ username: req.query.username }, {});
+  
+    const user = await mongo_client.db("signalregistry").collection("users").findOne({ 
+      username: req.query.username, 
+      password: req.query.password
+    }, {});
+  
+    if(user) {
+      const result = await mongo_client.db("signalregistry").collection("sessions").insertOne({
+        username : user.username,
+        sessionId: req.session,
+        role     : user.role
+      });
+      res.send({ username: user.username, role: user.role })
+    }
+    else {
+      res.send({})
+    }
   }
-  else {
-    res.sendStatus(401)
-  }
+  else res.send({})
 })
 
 // app.get('/logout', async (req, res) => {
