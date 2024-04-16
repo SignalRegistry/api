@@ -79,13 +79,10 @@ app.use(morg('[LOG] :method :status :response-time :req[content-length] :res[con
 app.use(require('express').urlencoded({ extended: true }));
 app.use(require('cookie-parser')())
 app.use(require('express').json())
+app.use(require('cors')())
 app.use(require('helmet')())
 
 app.use(async function (req, res, next) {
-  res.set('Access-Control-Allow-Origin', req.headers.origin)
-  res.set('Access-Control-Allow-Credentials', 'true')
-  res.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE')
-  res.set('Access-Control-Allow-Headers', "Access-Control-Allow-Headers, Content-Type")
   
   if (mongo_off) {
     res.status(503).send('ERR_DATABASE_OFF')
