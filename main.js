@@ -85,15 +85,25 @@ app.use(require('helmet')())
 app.use(async function (req, res, next) {
   
   if (mongo_off) {
-    res.status(503).send('ERR_DATABASE_OFF')
-    return;
+    console.warn(`[WARN] Database is offline`)
+    res.send({})
   }
 
-  req.user = null
   if (req.query.sessionId) {
     req.session   = req.query.sessionId
-    const session = await mongo_client.db("signalregistry").collection("sessions").findOne({ sessionId: req.session }, {});
+    const session = await mongo_client.db("signalregistry").collection("sessions").findOne({ 
+      sessionId: req.session 
+    }, {});
     if (session) req.user = { username: session.username, role: session.role }
+    else {
+      const session = {
+        sessionId: req.session,
+        username : `guest${crypto.randomBytes(16).toString("hex")}`,
+        role     : `guest`
+      }
+      const result = await mongo_client.db("signalregistry").collection("sessions").insertOne(session)
+      req.user = result.insertedId ? { username: session.username, role: session.role } : {}
+    }
     next()
   }
   // else if (req.headers.authorization && req.headers.authorization.startsWith("Bearer")) {
@@ -102,11 +112,10 @@ app.use(async function (req, res, next) {
   //   next()
   // }
   else{
-    res.status(404).send('ERR_SESSION_MISSING')
-    return;
+    res.send({})
   }
 })
-console.log(__dirname)
+
 // -----------------------------------------------------------------------------
 // HTTP Server: server
 // -----------------------------------------------------------------------------
