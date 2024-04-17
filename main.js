@@ -89,7 +89,7 @@ app.use(async function (req, res, next) {
     res.send({})
   }
 
-  if (req.query.sessionId) {
+  else if (req.query.sessionId) {
     req.session   = req.query.sessionId
     const session = await mongo_client.db("signalregistry").collection("sessions").findOne({ 
       sessionId: req.session 
@@ -143,13 +143,13 @@ app.get('/server', async (req, res) => {
 // -----------------------------------------------------------------------------
 app.post('/login', async (req, res) => {
   await mongo_client.db("signalregistry").collection("sessions").deleteMany({ sessionId: req.session }, {});
+  await mongo_client.db("signalregistry").collection("sessions").deleteMany({ username: req.user.username }, {});
 
-  if(req.query.username && req.query.password) {
-    await mongo_client.db("signalregistry").collection("sessions").deleteMany({ username: req.query.username }, {});
+  if(req.body.email && req.body.password) {
   
     const user = await mongo_client.db("signalregistry").collection("users").findOne({ 
-      username: req.query.username, 
-      password: req.query.password
+      email   : req.body.email, 
+      password: req.body.password
     }, {});
   
     if(user) {
