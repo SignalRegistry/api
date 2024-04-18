@@ -14,7 +14,7 @@ const { spawn } = require('node:child_process');
 const { MongoClient, ServerApiVersion } = require("mongodb");
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
-const mongo_client = new MongoClient('mongodb://127.0.0.1:27017', {
+const mongo_client = new MongoClient(`mongodb://${process.env.MONGODB_SERVER || "127.0.0.1"}:27017`, {
   serverApi: {
     version: ServerApiVersion.v1,
     strict: true,
@@ -48,7 +48,7 @@ async function run() {
     await mongo_client.db("admin").command({ ping: 1 });
 
     mongo_database = mongo_client.db('signalregistry')
-    console.log("[INFO] Successfully connected to MongoDB!");
+    console.log(`[INFO] Successfully connected to MongoDB at ${process.env.MONGODB_SERVER || "127.0.0.1"}`);
   } finally {
     ;
   }
