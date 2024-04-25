@@ -181,6 +181,13 @@ app.get('/user', async (req, res) => {
 })
 
 // -----------------------------------------------------------------------------
+// HTTP Server: Source
+// -----------------------------------------------------------------------------
+app.get('/collections', async (req, res) => {
+  res.send(await mongo_client.db("signalregistry").collection("sourceTemplates").find({}).toArray())
+})
+
+// -----------------------------------------------------------------------------
 // HTTP Server: Registry
 // -----------------------------------------------------------------------------
 app.get('/registry', async (req, res) => {
