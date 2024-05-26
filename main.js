@@ -4,14 +4,16 @@
 const path      = require('path')
 const http      = require('http');
 const assert    = require("assert")
+// const buffer    = require("Buffer")
 const crypto    = require('crypto')
 const { spawn } = require('node:child_process');
+const log       = require("loglevel")
 
 
 // =============================================================================
 // Database 
 // =============================================================================
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const mongo_client = new MongoClient(`mongodb://${process.env.MONGODB_SERVER || "127.0.0.1"}:27017`, {
@@ -85,7 +87,7 @@ app.use(require('helmet')())
 app.use(async function (req, res, next) {
   
   if (mongo_off) {
-    console.warn(`[WARN] Database is offline`)
+    log.error(`[ERROR] Database is offline`)
     res.send({})
   }
 
@@ -112,31 +114,10 @@ app.use(async function (req, res, next) {
   //   next()
   // }
   else{
+    log.warn(`[WARN] Request without session id.`)
     res.send({})
   }
 })
-
-// -----------------------------------------------------------------------------
-// HTTP Server: server
-// -----------------------------------------------------------------------------
-app.get('/server', async (req, res) => {
-  const cmd = spawn('git', ['pull'], {cwd: __dirname});
-
-  ls.stdout.on('data', (data) => {
-    console.log(`stdout: ${data}`);
-  });
-
-  ls.stderr.on('data', (data) => {
-    console.error(`stderr: ${data}`);
-  });
-
-  ls.on('close', (code) => {
-    console.log(`child process exited with code ${code}`);
-  }); 
-
-  res.send(req.user)
-})
-
 
 // -----------------------------------------------------------------------------
 // HTTP Server: Login
@@ -168,10 +149,11 @@ app.post('/login', async (req, res) => {
   else res.send({})
 })
 
-// app.get('/logout', async (req, res) => {
-//   const result = await mongo_client.db("signalregistry").collection("sessions").deleteMany({ sessionId: req.session }, {});
-//   res.send(result)
-// })
+app.get('/logout', async (req, res) => {
+  await mongo_client.db("signalregistry").collection("sessions").deleteMany({ sessionId: req.session }, {});
+  await mongo_client.db("signalregistry").collection("sessions").deleteMany({ username: req.user.username }, {});
+  res.send({})
+})
 
 // -----------------------------------------------------------------------------
 // HTTP Server: User
@@ -198,16 +180,50 @@ app.get('/registry', async (req, res) => {
 app.post('/registry', async (req, res) => {
   const item  = { owner : req.user ? req.user.username : req.session, 
                   name  : req.body.name,
+                  type  : req.body.type,
                   desc  : req.body.desc || "Description will be added soon." 
                 };
-  let update, option
+                let update, option
   update    = { "$currentDate": { "create_date": true }, "$set": item }
   option    = { upsert: true }
   const result = await mongo_client.db("signalregistry").collection("registry").updateOne(item, update, option);
-  res.send(result)
+  res.send(result.upsertedId || null)
 })
 
+// -----------------------------------------------------------------------------
+// HTTP Server: Registry: Item
+// -----------------------------------------------------------------------------
+app.get('/registry/:item', async (req, res) => {
+  res.send(await mongo_client.db("signalregistry").collection("registry").findOne({_id: (new ObjectId(req.params.item))}))
+})
 
+// -----------------------------------------------------------------------------
+// HTTP Server: Registry: Item: Data
+// -----------------------------------------------------------------------------
+app.put('/registry/:item/data', async (req, res) => {
+  if(Array.isArray(req.body) && req.body.length > 0) {
+    const pipeline = [
+      // { "$match" : {} }
+      // { "$match"   : { owner: !req.user ? req.session : req.user.role !="admin" ? req.user.username : {} } },
+      { "$match" : { _id :  (new ObjectId(req.params.item)) } },
+      { "$limit" : 1 },
+      { "$project" : { _id : 0 } },
+      { "$project" : { type: 1 } }
+    ]
+    // res.send((await mongo_client.db("signalregistry").collection("registry").aggregate(pipeline)).toArray())
+    res.send((await mongo_client.db("signalregistry").collection("registry").aggregate(pipeline).toArray())[0])
+
+  }
+  else {
+    res.send({
+      error: {
+        endpoint: "/registry/:item/data",
+        method  : "PUT",
+        message : "NO_DATA"
+      }
+    })
+  }
+})
 
 
 

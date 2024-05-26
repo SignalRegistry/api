@@ -1,3 +1,25 @@
-###
 
-GET http://127.0.0.1:7339/source/template?sessionId=123
+### Get session registries
+
+GET http://127.0.0.1:7339/registry?sessionId=123
+
+### Create a trigger registry
+
+POST http://127.0.0.1:7339/registry?sessionId=123
+Content-Type: application/json
+
+{
+  "name": "Trigger test registry3",
+  "type": "trigger",
+  "desc": "A description"
+}
+
+
+### Registry:Item
+
+### Registry:Item  GET
+GET http://127.0.0.1:7339/registry/66533b42e5818f160ee200d7?sessionId=123
+
+### Registry:Item:Data
+### Registry:Item:Data PUT
+PUT http://127.0.0.1:7339/registry/66533b42e5818f160ee200d7/data?sessionId=123
