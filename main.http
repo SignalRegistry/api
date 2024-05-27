@@ -18,8 +18,13 @@ Content-Type: application/json
 ### Registry:Item
 
 ### Registry:Item  GET
-GET http://127.0.0.1:7339/registry/66533b42e5818f160ee200d7?sessionId=123
+GET http://127.0.0.1:7339/registry/6654c109e5818f160ee239e8?sessionId=123
 
 ### Registry:Item:Data
 ### Registry:Item:Data PUT
-PUT http://127.0.0.1:7339/registry/66533b42e5818f160ee200d7/data?sessionId=123
+PUT http://127.0.0.1:7339/registry/6654c109e5818f160ee239e8/data?sessionId=123
+Content-Type: application/json
+
+{
+  "data": [1]
+}

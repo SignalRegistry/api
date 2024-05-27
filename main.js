@@ -9,7 +9,7 @@ const crypto    = require('crypto')
 const { spawn } = require('node:child_process');
 const log       = require("loglevel")
 
-
+log.setLevel("DEBUG")
 // =============================================================================
 // Database 
 // =============================================================================
@@ -201,17 +201,54 @@ app.get('/registry/:item', async (req, res) => {
 // HTTP Server: Registry: Item: Data
 // -----------------------------------------------------------------------------
 app.put('/registry/:item/data', async (req, res) => {
-  if(Array.isArray(req.body) && req.body.length > 0) {
+  if(Array.isArray(req.body.data) && req.body.data.length > 0) {
     const pipeline = [
       // { "$match" : {} }
-      // { "$match"   : { owner: !req.user ? req.session : req.user.role !="admin" ? req.user.username : {} } },
+      // { "$match" : { owner: !req.user ? req.session : req.user.role !="admin" ? req.user.username : {} } },
       { "$match" : { _id :  (new ObjectId(req.params.item)) } },
       { "$limit" : 1 },
       { "$project" : { _id : 0 } },
       { "$project" : { type: 1 } }
     ]
+    const type = (await mongo_client.db("signalregistry").collection("registry").aggregate(pipeline).toArray())[0].type
+    log.info(`[DEBUG] Registry item type is ${type}`)
+    if(type == "trigger") {
+      if(req.body.data.length != 1) {
+        res.send({
+          error: {
+            endpoint: "/registry/:item/data",
+            method  : "PUT",
+            message : "DATA_LENGTH_EXCEED"
+          }
+        })
+      }
+      else if(req.body.data[0] != 1) {
+        res.send({
+          error: {
+            endpoint: "/registry/:item/data",
+            method  : "PUT",
+            message : "INCONSISTENT_DATA"
+          }
+        })
+      }
+      else {
+        const item = { 
+          _id :  (new ObjectId(req.params.item)),
+          owner: !req.user ? req.session : req.user.role !="admin" ? req.user.username : {} 
+        }
+        log.info(item)
+        // const update = { "$currentDate": { "last_update": true } , $push: { 'data': { "value": req.body.data[0], "date" : new Date() } } } 
+        const update = { $push: { 'data': { "value": req.body.data[0], "date" : new Date(), "location": "" } } } 
+        const option = {} 
+        const result = await mongo_client.db("signalregistry").collection("registry").updateOne(item, update, option);
+        // const result = await mongo_client.db("signalregistry").collection("registry").updateOne(item, update, option);
+        // const update2 = { $set: { "$currentDate": { "$last": true } } }
+        // await mongo_client.db("signalregistry").collection("registry").updateOne(item, update2, option);
+        res.send(result)
+      }
+    }
     // res.send((await mongo_client.db("signalregistry").collection("registry").aggregate(pipeline)).toArray())
-    res.send((await mongo_client.db("signalregistry").collection("registry").aggregate(pipeline).toArray())[0])
+    // res.send((await mongo_client.db("signalregistry").collection("registry").aggregate(pipeline).toArray())[0])
 
   }
   else {
