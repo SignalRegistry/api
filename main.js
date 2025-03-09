@@ -16,26 +16,21 @@ log.setLevel("DEBUG")
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
-const mongo_client = new MongoClient(`mongodb://${process.env.MONGODB_SERVER || "127.0.0.1"}:27017`, {
-  serverApi: {
-    version: ServerApiVersion.v1,
-    strict: true,
-    deprecationErrors: true,
-  },
+const mongoClient = new MongoClient(`mongodb://${process.env.MONGODB_SERVER || "127.0.0.1"}:27017`, {
   // connectTimeoutMS: 1000,
   serverSelectionTimeoutMS: 5000,
   minPoolSize: 10,
   maxPoolSize: 20
 });
 
-let mongo_off = true
-mongo_client.on('serverHeartbeatFailed', event => {
-  if (!mongo_off) console.log("[ERROR] Database connection is offline.");
-  mongo_off = true
+let mongoOff = true
+mongoClient.on('serverHeartbeatFailed', event => {
+  if (!mongoOff) console.log("[ERROR] Database connection is offline.");
+  mongoOff = true
 });
-mongo_client.on('serverHeartbeatSucceeded', event => {
-  if (mongo_off) console.log("[INFO] Database connection is online.");
-  mongo_off = false
+mongoClient.on('serverHeartbeatSucceeded', event => {
+  if (mongoOff) console.log("[INFO] Database connection is online.");
+  mongoOff = false
 });
 
 let mongo_database;
@@ -43,16 +38,17 @@ let mongo_database;
 async function run() {
   try {
     // Connect the client to the server (optional starting in v4.7)
-    await mongo_client.connect();
-    mongo_off = false
+    await mongoClient.connect();
+    mongoOff = false
 
     // Send a ping to confirm a successful connection
-    await mongo_client.db("admin").command({ ping: 1 });
+    await mongoClient.db("admin").command({ ping: 1 });
 
-    mongo_database = mongo_client.db('signalregistry')
+    mongo_database = mongoClient.db('signalregistry')
     console.log(`[INFO] Successfully connected to MongoDB at ${process.env.MONGODB_SERVER || "127.0.0.1"}`);
   } finally {
-    ;
+    // Ensures that the client will close when you finish/error
+    await mongoClient.close();
   }
 }
 run().catch(() => {
@@ -73,10 +69,10 @@ server.listen(port, () => {
 });
 
 // Middlewares
-let morg = require('morgan')
-morg.token('session', function (req, res) { return req.session || req.token || 'no-session'.padEnd(32, '#') })
-morg.token('username', function (req, res) { return  (req.user && req.user['username']) ? req.user['username'].padEnd(16, '_') : 'no-user'.padEnd(16, '#') })
-app.use(morg('[LOG] :method :status :response-time :req[content-length] :res[content-length] :session :username :url'))
+let morgan = require('morgan')
+morgan.token('session', function (req, res) { return req.session || req.token || 'no-session'.padEnd(32, '#') })
+morgan.token('username', function (req, res) { return  (req.user && req.user['username']) ? req.user['username'].padEnd(16, '_') : 'no-user'.padEnd(16, '#') })
+app.use(morgan('[LOG] :method :status :response-time :req[content-length] :res[content-length] :session :username :url'))
 
 app.use(require('express').urlencoded({ extended: true }));
 app.use(require('cookie-parser')())
@@ -86,14 +82,14 @@ app.use(require('helmet')())
 
 app.use(async function (req, res, next) {
   
-  if (mongo_off) {
+  if (mongoOff) {
     log.error(`[ERROR] Database is offline`)
     res.send({})
   }
 
   else if (req.query.sessionId) {
     req.session   = req.query.sessionId
-    const session = await mongo_client.db("signalregistry").collection("sessions").findOne({ 
+    const session = await mongoClient.db("signalregistry").collection("sessions").findOne({ 
       sessionId: req.session 
     }, {});
     if (session) req.user = { username: session.username, role: session.role }
@@ -103,7 +99,7 @@ app.use(async function (req, res, next) {
         username : `guest${crypto.randomBytes(16).toString("hex")}`,
         role     : `guest`
       }
-      const result = await mongo_client.db("signalregistry").collection("sessions").insertOne(session)
+      const result = await mongoClient.db("signalregistry").collection("sessions").insertOne(session)
       req.user = result.insertedId ? { username: session.username, role: session.role } : { username: "guest", role: "anonymous" }
     }
     next()
@@ -123,19 +119,19 @@ app.use(async function (req, res, next) {
 // HTTP Server: Login
 // -----------------------------------------------------------------------------
 app.post('/login', async (req, res) => {
-  await mongo_client.db("signalregistry").collection("sessions").deleteMany({ sessionId: req.session }, {});
-  await mongo_client.db("signalregistry").collection("sessions").deleteMany({ username: req.user.username }, {});
+  await mongoClient.db("signalregistry").collection("sessions").deleteMany({ sessionId: req.session }, {});
+  await mongoClient.db("signalregistry").collection("sessions").deleteMany({ username: req.user.username }, {});
   
   if(req.body.email && req.body.password) {
     
-    const user = await mongo_client.db("signalregistry").collection("users").findOne({ 
+    const user = await mongoClient.db("signalregistry").collection("users").findOne({ 
       email   : req.body.email, 
       password: req.body.password
     }, {});
-    await mongo_client.db("signalregistry").collection("sessions").deleteMany({ username: user ? user.username : undefined }, {});
+    await mongoClient.db("signalregistry").collection("sessions").deleteMany({ username: user ? user.username : undefined }, {});
   
     if(user) {
-      const result = await mongo_client.db("signalregistry").collection("sessions").insertOne({
+      const result = await mongoClient.db("signalregistry").collection("sessions").insertOne({
         username : user.username,
         sessionId: req.session,
         role     : user.role
@@ -150,8 +146,8 @@ app.post('/login', async (req, res) => {
 })
 
 app.get('/logout', async (req, res) => {
-  await mongo_client.db("signalregistry").collection("sessions").deleteMany({ sessionId: req.session }, {});
-  await mongo_client.db("signalregistry").collection("sessions").deleteMany({ username: req.user.username }, {});
+  await mongoClient.db("signalregistry").collection("sessions").deleteMany({ sessionId: req.session }, {});
+  await mongoClient.db("signalregistry").collection("sessions").deleteMany({ username: req.user.username }, {});
   res.send({})
 })
 
@@ -166,7 +162,7 @@ app.get('/user', async (req, res) => {
 // HTTP Server: Source
 // -----------------------------------------------------------------------------
 app.get('/collections', async (req, res) => {
-  res.send(await mongo_client.db("signalregistry").collection("sourceTemplates").find({}).toArray())
+  res.send(await mongoClient.db("signalregistry").collection("sourceTemplates").find({}).toArray())
 })
 
 // -----------------------------------------------------------------------------
@@ -174,7 +170,7 @@ app.get('/collections', async (req, res) => {
 // -----------------------------------------------------------------------------
 app.get('/registry', async (req, res) => {
   const query = { owner: req.user ? req.user.username : req.session };
-  res.send(await mongo_client.db("signalregistry").collection("registry").find(query).toArray())
+  res.send(await mongoClient.db("signalregistry").collection("registry").find(query).toArray())
 })
 
 app.post('/registry', async (req, res) => {
@@ -186,7 +182,7 @@ app.post('/registry', async (req, res) => {
                 let update, option
   update    = { "$currentDate": { "create_date": true }, "$set": item }
   option    = { upsert: true }
-  const result = await mongo_client.db("signalregistry").collection("registry").updateOne(item, update, option);
+  const result = await mongoClient.db("signalregistry").collection("registry").updateOne(item, update, option);
   res.send(result.upsertedId || null)
 })
 
@@ -194,7 +190,7 @@ app.post('/registry', async (req, res) => {
 // HTTP Server: Registry: Item
 // -----------------------------------------------------------------------------
 app.get('/registry/:item', async (req, res) => {
-  res.send(await mongo_client.db("signalregistry").collection("registry").findOne({_id: (new ObjectId(req.params.item))}))
+  res.send(await mongoClient.db("signalregistry").collection("registry").findOne({_id: (new ObjectId(req.params.item))}))
 })
 
 // -----------------------------------------------------------------------------
@@ -210,7 +206,7 @@ app.put('/registry/:item/data', async (req, res) => {
       { "$project" : { _id : 0 } },
       { "$project" : { type: 1 } }
     ]
-    const type = (await mongo_client.db("signalregistry").collection("registry").aggregate(pipeline).toArray())[0].type
+    const type = (await mongoClient.db("signalregistry").collection("registry").aggregate(pipeline).toArray())[0].type
     log.info(`[DEBUG] Registry item type is ${type}`)
     if(type == "trigger") {
       if(req.body.data.length != 1) {
@@ -240,15 +236,15 @@ app.put('/registry/:item/data', async (req, res) => {
         // const update = { "$currentDate": { "last_update": true } , $push: { 'data': { "value": req.body.data[0], "date" : new Date() } } } 
         const update = { $push: { 'data': { "value": req.body.data[0], "date" : new Date(), "location": "" } } } 
         const option = {} 
-        const result = await mongo_client.db("signalregistry").collection("registry").updateOne(item, update, option);
-        // const result = await mongo_client.db("signalregistry").collection("registry").updateOne(item, update, option);
+        const result = await mongoClient.db("signalregistry").collection("registry").updateOne(item, update, option);
+        // const result = await mongoClient.db("signalregistry").collection("registry").updateOne(item, update, option);
         // const update2 = { $set: { "$currentDate": { "$last": true } } }
-        // await mongo_client.db("signalregistry").collection("registry").updateOne(item, update2, option);
+        // await mongoClient.db("signalregistry").collection("registry").updateOne(item, update2, option);
         res.send(result)
       }
     }
-    // res.send((await mongo_client.db("signalregistry").collection("registry").aggregate(pipeline)).toArray())
-    // res.send((await mongo_client.db("signalregistry").collection("registry").aggregate(pipeline).toArray())[0])
+    // res.send((await mongoClient.db("signalregistry").collection("registry").aggregate(pipeline)).toArray())
+    // res.send((await mongoClient.db("signalregistry").collection("registry").aggregate(pipeline).toArray())[0])
 
   }
   else {
@@ -295,14 +291,14 @@ app.get('/:coll', async (req, res) => {
       }
     }},
   ]
-  const result = mongo_client.db("signalregistry").collection(req.params.coll).aggregate(pipeline);
+  const result = mongoClient.db("signalregistry").collection(req.params.coll).aggregate(pipeline);
   res.send(await result.toArray())
 })
 
 // Registry Data
 app.get('/:coll/:name', async (req, res) => {
   const query = { owner: req.user ? req.user.username : req.session, name: req.params.name };
-  res.send(await mongo_client.db("signalregistry").collection(req.params.coll).findOne(query))
+  res.send(await mongoClient.db("signalregistry").collection(req.params.coll).findOne(query))
 })
 
 app.put('/:coll/:name', async (req, res) => {
@@ -313,13 +309,13 @@ app.put('/:coll/:name', async (req, res) => {
       let update, option
       update    = { "$currentDate": { "create_date": true, "last_update": true }, "$set": item }
       option    = { upsert: true }
-      const result = await mongo_client.db("signalregistry").collection("list").updateOne(item, update, option);
+      const result = await mongoClient.db("signalregistry").collection("list").updateOne(item, update, option);
       res.send(result.acknowledged)
     }
     else if(req.body
       && (Array.isArray(req.body.data) && (typeof req.body.data[0] == 'string' || typeof req.body.data[0] == 'number'))) {
       const item  = { owner: req.user ? req.user.username : req.session, name: req.params.name };
-      const exist = await mongo_client.db("signalregistry").collection("list").countDocuments(item)
+      const exist = await mongoClient.db("signalregistry").collection("list").countDocuments(item)
       let update, option
       if (exist == 0){
         item.data = req.body.data
@@ -330,7 +326,7 @@ app.put('/:coll/:name', async (req, res) => {
         update = { "$currentDate": { "last_update": true } , $push: { 'data': { $each: req.body.data } } }
         option = {} 
       }
-      const result = await mongo_client.db("signalregistry").collection("list").updateOne(item, update, option);
+      const result = await mongoClient.db("signalregistry").collection("list").updateOne(item, update, option);
       res.send(result)
     }
   }
@@ -341,11 +337,11 @@ app.put('/:coll/:name', async (req, res) => {
 
 app.delete('/:coll/:name', async (req, res) => {
   const query = { owner: req.user ? req.user.username : req.session, name: req.params.name };
-  const exist = await mongo_client.db("signalregistry").collection(req.params.coll).countDocuments(query)
+  const exist = await mongoClient.db("signalregistry").collection(req.params.coll).countDocuments(query)
   if (exist == 0)
     res.status(404).send('[ERROR] Signal not found.')
   else {
-    const result = await mongo_client.db("signalregistry").collection(req.params.coll).deleteOne(query);
+    const result = await mongoClient.db("signalregistry").collection(req.params.coll).deleteOne(query);
     res.send(result)
   }
 })
