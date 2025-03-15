@@ -1,8 +1,8 @@
 # api.signalregistry.net
 
 ## Requirements
-- [Node.js 20.11 LTS](https://github.com/nodejs/node/blob/main/doc/changelogs/CHANGELOG_V20.md#20.11.1)
-- [MongoDB 7.0.5.](https://www.mongodb.com/try/download/community)
+- [Node.js v20.18.3 LTS](https://github.com/nodejs/node/blob/main/doc/changelogs/CHANGELOG_V20.md#20.11.1)
+- [MongoDB Community Server v8.0.4](https://www.mongodb.com/try/download/community)
 
 
 ## References
