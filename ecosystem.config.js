@@ -23,6 +23,7 @@ module.exports = {
       "ref": "origin/main",
       "repo": "https://github.com/SignalRegistry/api.git",
       "path": "/root/api",
+      'post-deploy' : 'npm install && pm2 reload ecosystem.config.js --env production',
       // "post-deploy": "npm rebuild --update-binary && pm2 startOrRestart ecosystem.json --env production",
       "env": {
         "NODE_ENV": "production"
