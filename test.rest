@@ -2,7 +2,7 @@ curl -c cookies.txt -b cookies.txt http://127.0.0.1:3000 -v
 
 ###
 
-GET http://127.0.0.1:3000
+GET http://127.0.0.1:7339
 Authorization: Bearer 123456789123
 
 # Alternative

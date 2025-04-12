@@ -44,7 +44,7 @@ async function run() {
     console.log(`[INFO] Successfully connected to MongoDB at ${process.env.MONGODB_SERVER || "127.0.0.1"}`);
   } finally {
     // Ensures that the client will close when you finish/error
-    await mongoClient.close();
+    // await mongoClient.close();
   }
 }
 run().catch(() => {
@@ -56,6 +56,14 @@ run().catch(() => {
 // =============================================================================
 // HTTP Server
 // =============================================================================
+const statusCodes = {
+  INTERNAL_DERVER_ERROR: 500
+}
+
+const allowedOrigins = [
+  'http://127.0.0.1:7339'
+]
+
 const app = require('express')();
 
 // Http and Websocket Server
@@ -67,49 +75,71 @@ server.listen(port, () => {
 
 // Middlewares
 let morgan = require('morgan')
-morgan.token('session', function (req, res) { return req.session || req.token || 'no-session'.padEnd(32, '#') })
+morgan.token('session', function (req, res) { return (req.user && req.user["session"] ? req.user["session"] : null) || req.token || 'no-session'.padEnd(32, '#') })
 morgan.token('username', function (req, res) { return  (req.user && req.user['username']) ? req.user['username'].padEnd(16, '_') : 'no-user'.padEnd(16, '#') })
 app.use(morgan('[LOG] :remote-addr :method :status :response-time :req[content-length] :res[content-length] :session :username :url'))
 
 app.use(require('express').urlencoded({ extended: true }));
 app.use(require('cookie-parser')())
 app.use(require('express').json())
-app.use(require('cors')())
 app.use(require('helmet')())
 
 app.use(async function (req, res, next) {
   
   if (mongoOff) {
     console.log(`[ERROR] Database is offline`)
-    res.send({})
+    res.status(statusCodes.INTERNAL_DERVER_ERROR).end()
   }
 
-  else if (req.query.sessionId) {
-    req.session   = req.query.sessionId
-    const session = await mongoClient.db("signalregistry").collection("sessions").findOne({ 
-      sessionId: req.session 
-    }, {});
-    if (session) req.user = { username: session.username, role: session.role }
-    else {
-      const session = {
-        sessionId: req.session,
-        username : `guest${crypto.randomBytes(16).toString("hex")}`,
-        role     : `guest`
-      }
-      const result = await mongoClient.db("signalregistry").collection("sessions").insertOne(session)
-      req.user = result.insertedId ? { username: session.username, role: session.role } : { username: "guest", role: "anonymous" }
-    }
-    next()
+  const origin = `${req.protocol}://${req.host}`
+  if (allowedOrigins.indexOf(origin) > -1) {
+    res.set('Access-Control-Allow-Credentials', 'true')
+    res.set('Access-Control-Allow-Origin', origin)
   }
+  else { // allow other origins to make unauthenticated CORS requests
+    res.set('Access-Control-Allow-Origin', '*')
+  }
+
+
+  if (req.cookies.sr) {    
+    const doc = await mongoClient.db("signalregistry").collection("sessions").findOne({ id: req.cookies.sr })
+    if (doc) req.user = { session: req.cookies.sr, username: doc.username, role: doc.role, origin: origin }
+    else req.user = { session: req.cookies.sr, username: "anonymous", role: "guest", origin: origin }
+
+    // req.session   = req.query.sessionId
+    // const session = await mongoClient.db("signalregistry").collection("sessions").findOne({ 
+    //   sessionId: req.session 
+    // }, {});
+    // if (session) req.user = { username: session.username, role: session.role }
+    // else {
+    //   const session = {
+    //     sessionId: req.session,
+    //     username : `guest${crypto.randomBytes(16).toString("hex")}`,
+    //     role     : `guest`
+    //   }
+    //   const result = await mongoClient.db("signalregistry").collection("sessions").insertOne(session)
+    //   req.user = result.insertedId ? { username: session.username, role: session.role } : { username: "guest", role: "anonymous" }
+    // }
+  }
+  else {
+    let cookieId = crypto.randomBytes(16).toString("hex")
+    req.cookies.sr = cookieId
+    res.cookie('sr', cookieId, { maxAge: 1 * 1 * 1 * 60 * 1000, sameSite: "none", httpOnly: true, secure: true });
+  }
+  
+  if (!req.user) {
+    req.user = { session: req.cookies.sr, username: "anonymous", role: "guest", origin: origin }
+  }
+  console.log(req.user)
   // else if (req.headers.authorization && req.headers.authorization.startsWith("Bearer")) {
   //   req.session = req.headers.authorization.replace('Bearer ', '')
   //   // console.log(`[DEBUG]: Bearer token supplied: ${req.token}`)
-  //   next()
   // }
-  else{
-    console.log(`[WARN] Request without session id.`)
-    res.send({})
-  }
+  // else{
+  //   console.log(`[WARN] Request without session id.`)
+  //   res.send({})
+  // }
+  next()
 })
 
 // -----------------------------------------------------------------------------
