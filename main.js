@@ -75,8 +75,8 @@ server.listen(port, () => {
 
 // Middlewares
 let morgan = require('morgan')
-morgan.token('session', function (req, res) { return (req.user && req.user["session"] ? req.user["session"] : null) || req.token || 'no-session'.padEnd(32, '#') })
-morgan.token('username', function (req, res) { return  (req.user && req.user['username']) ? req.user['username'].padEnd(16, '_') : 'no-user'.padEnd(16, '#') })
+morgan.token('session', function (req, res) { return req.token || req.session["cookie"] || 'no-session'.padEnd(32, '#') })
+morgan.token('username', function (req, res) { return  req.session['username'] ? req.session['username'].padEnd(16, '_') : 'no-user'.padEnd(16, '#') })
 app.use(morgan('[LOG] :remote-addr :method :status :response-time :req[content-length] :res[content-length] :session :username :url'))
 
 app.use(require('express').urlencoded({ extended: true }));
@@ -91,20 +91,25 @@ app.use(async function (req, res, next) {
     res.status(statusCodes.INTERNAL_DERVER_ERROR).end()
   }
 
-  const origin = `${req.protocol}://${req.host}`
-  if (allowedOrigins.indexOf(origin) > -1) {
+  req.session = { cookie: req.cookies.sr, username: "anonymous", role: "guest", origin: `${req.protocol}://${req.host}` }
+  if (allowedOrigins.indexOf(req.session.origin) > -1) {
     res.set('Access-Control-Allow-Credentials', 'true')
-    res.set('Access-Control-Allow-Origin', origin)
+    res.set('Access-Control-Allow-Origin', req.session.origin)
   }
   else { // allow other origins to make unauthenticated CORS requests
     res.set('Access-Control-Allow-Origin', '*')
   }
 
+  if (req.cookies.sr) {  
+    const session = await mongoClient.db("signalregistry").collection("sessions").findOne({ cookie: req.cookies.sr })
+    if (session) {
+      req.session.username = session.username
+      req.session.role     = session.role
+    }
 
-  if (req.cookies.sr) {    
-    const doc = await mongoClient.db("signalregistry").collection("sessions").findOne({ id: req.cookies.sr })
-    if (doc) req.user = { session: req.cookies.sr, username: doc.username, role: doc.role, origin: origin }
-    else req.user = { session: req.cookies.sr, username: "anonymous", role: "guest", origin: origin }
+
+    // if (doc) req.user = { cookie: req.cookies.sr, username: doc.username, role: doc.role, origin: doc.origin }
+    // else req.user = { session: req.cookies.sr, username: "anonymous", role: "guest", origin: doc.origin }
 
     // req.session   = req.query.sessionId
     // const session = await mongoClient.db("signalregistry").collection("sessions").findOne({ 
@@ -122,15 +127,11 @@ app.use(async function (req, res, next) {
     // }
   }
   else {
-    let cookieId = crypto.randomBytes(16).toString("hex")
-    req.cookies.sr = cookieId
-    res.cookie('sr', cookieId, { maxAge: 1 * 1 * 1 * 60 * 1000, sameSite: "none", httpOnly: true, secure: true });
+    res.cookie('sr', crypto.randomBytes(16).toString("hex"), { maxAge: 1 * 1 * 1 * 60 * 1000, sameSite: "none", httpOnly: true, secure: true });
   }
   
-  if (!req.user) {
-    req.user = { session: req.cookies.sr, username: "anonymous", role: "guest", origin: origin }
-  }
-  console.log(req.user)
+  
+  // console.log(req.session)
   // else if (req.headers.authorization && req.headers.authorization.startsWith("Bearer")) {
   //   req.session = req.headers.authorization.replace('Bearer ', '')
   //   // console.log(`[DEBUG]: Bearer token supplied: ${req.token}`)
@@ -146,8 +147,8 @@ app.use(async function (req, res, next) {
 // HTTP Server: Login
 // -----------------------------------------------------------------------------
 app.post('/login', async (req, res) => {
-  await mongoClient.db("signalregistry").collection("sessions").deleteMany({ sessionId: req.session }, {});
-  await mongoClient.db("signalregistry").collection("sessions").deleteMany({ username: req.user.username }, {});
+  await mongoClient.db("signalregistry").collection("sessions").deleteMany({ cookie: req.session.cookie }, {});
+  await mongoClient.db("signalregistry").collection("sessions").deleteMany({ username: req.session.username }, {});
   
   if(req.body.email && req.body.password) {
     
@@ -155,13 +156,15 @@ app.post('/login', async (req, res) => {
       email   : req.body.email, 
       password: req.body.password
     }, {});
+
     await mongoClient.db("signalregistry").collection("sessions").deleteMany({ username: user ? user.username : undefined }, {});
   
     if(user) {
-      const result = await mongoClient.db("signalregistry").collection("sessions").insertOne({
-        username : user.username,
-        sessionId: req.session,
-        role     : user.role
+      await mongoClient.db("signalregistry").collection("sessions").insertOne({
+        cookie  : req.session.cookie,
+        username: user.username,
+        role    : user.role,
+        // origin  : req.session.origin
       });
       res.send({ username: user.username, role: user.role })
     }
@@ -173,8 +176,8 @@ app.post('/login', async (req, res) => {
 })
 
 app.get('/logout', async (req, res) => {
-  await mongoClient.db("signalregistry").collection("sessions").deleteMany({ sessionId: req.session }, {});
-  await mongoClient.db("signalregistry").collection("sessions").deleteMany({ username: req.user.username }, {});
+  await mongoClient.db("signalregistry").collection("sessions").deleteMany({ cookie: req.session.cookie }, {});
+  await mongoClient.db("signalregistry").collection("sessions").deleteMany({ username: req.session.username }, {});
   res.send({})
 })
 
