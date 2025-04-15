@@ -91,7 +91,7 @@ app.use(async function (req, res, next) {
     res.status(statusCodes.INTERNAL_DERVER_ERROR).end()
   }
 
-  req.session = { cookie: req.cookies.sr, username: "anonymous", role: "guest", origin: `${req.protocol}://${req.host}` }
+  req.session = { origin: `${req.protocol}://${req.host}` }
   if (allowedOrigins.indexOf(req.session.origin) > -1) {
     res.set('Access-Control-Allow-Credentials', 'true')
     res.set('Access-Control-Allow-Origin', req.session.origin)
@@ -101,8 +101,9 @@ app.use(async function (req, res, next) {
   }
 
   if (req.cookies.sr) {  
-    const session = await mongoClient.db("signalregistry").collection("sessions").findOne({ cookie: req.cookies.sr })
-    if (session) {
+    req.session.cookies = req.cookies.sr
+    const doc = await mongoClient.db("signalregistry").collection("sessions").findOne({ cookie: req.cookies.sr })
+    if (doc) {
       req.session.username = session.username
       req.session.role     = session.role
     }
@@ -127,9 +128,14 @@ app.use(async function (req, res, next) {
     // }
   }
   else {
-    res.cookie('sr', crypto.randomBytes(16).toString("hex"), { maxAge: 1 * 1 * 1 * 60 * 1000, sameSite: "none", httpOnly: true, secure: true });
+    req.session.cookie = crypto.randomBytes(16).toString("hex")
+    res.cookie('sr', req.session.cookie, { maxAge: 1 * 1 * 1 * 60 * 1000, sameSite: "none", httpOnly: true, secure: true });
   }
   
+  if (!req.session.username) {
+    req.session.username = "anonymous"
+    req.session.role     = "guest"
+  }
   
   // console.log(req.session)
   // else if (req.headers.authorization && req.headers.authorization.startsWith("Bearer")) {
