@@ -77,7 +77,8 @@ server.listen(port, () => {
 let morgan = require('morgan')
 morgan.token('session', function (req, res) { return req.token || req.session["cookie"] || 'no-session'.padEnd(32, '#') })
 morgan.token('username', function (req, res) { return  req.session['username'] ? req.session['username'].padEnd(16, '_') : 'no-user'.padEnd(16, '#') })
-app.use(morgan('[LOG] :remote-addr :method :status :response-time :req[content-length] :res[content-length] :session :username :url'))
+morgan.token('role', function (req, res) { return  req.session['role'] ? req.session['role'].padEnd(8, '_') : 'no-role'.padEnd(8, '#') })
+app.use(morgan('[LOG] :remote-addr :method :status :response-time :req[content-length] :res[content-length] :role :username :url'))
 
 app.use(require('express').urlencoded({ extended: true }));
 app.use(require('cookie-parser')())
